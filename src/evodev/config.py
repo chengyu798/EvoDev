@@ -1,3 +1,5 @@
+"""读取环境配置并准备运行所需目录。"""
+
 from functools import lru_cache
 from pathlib import Path
 
@@ -5,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Runtime configuration loaded from EVODEV_* environment variables."""
+    """从 EVODEV_ 开头的环境变量加载运行配置。"""
 
     model_config = SettingsConfigDict(
         env_prefix="EVODEV_",

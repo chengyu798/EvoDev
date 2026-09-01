@@ -1,3 +1,5 @@
+"""定义任务运行状态和运行事件数据。"""
+
 from datetime import datetime
 from uuid import UUID, uuid4
 
@@ -14,7 +16,7 @@ class TaskRunRead(BaseModel):
     workflow_version: str = "bug_fix@1"
     current_node: str | None = None
     iteration: int = 0
-    max_iterations: int = 2
+    max_iterations: int = 3
     error_code: str | None = None
     error_message: str | None = None
     created_at: datetime = Field(default_factory=utc_now)

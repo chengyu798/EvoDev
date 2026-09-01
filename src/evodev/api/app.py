@@ -1,3 +1,5 @@
+"""创建 FastAPI 应用并装配路由、服务和异常处理。"""
+
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -24,7 +26,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     application = FastAPI(
         title="EvoDev API",
-        description="Multi-agent software repair API",
+        description="多智能体软件修复接口",
         version=__version__,
         lifespan=lifespan,
     )

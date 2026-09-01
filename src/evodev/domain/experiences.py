@@ -1,3 +1,5 @@
+"""定义可从历史运行中检索复用的经验数据。"""
+
 from datetime import datetime
 from uuid import UUID, uuid4
 

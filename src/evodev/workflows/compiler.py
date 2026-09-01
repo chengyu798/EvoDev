@@ -1,3 +1,5 @@
+"""把业务工作流定义编译为可执行的 LangGraph。"""
+
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
@@ -31,14 +33,14 @@ def compile_workflow(
     *,
     checkpointer: object | None = None,
 ) -> CompiledStateGraph:
-    """Compile an EvoDev-owned workflow specification into LangGraph."""
+    """将 EvoDev 工作流定义编译为 LangGraph。"""
     builder = StateGraph(EvoDevState)
 
     for node_name in spec.nodes:
         try:
             node = NODE_REGISTRY[node_name]
         except KeyError as exc:
-            raise ValueError(f"workflow node is not registered: {node_name}") from exc
+            raise ValueError(f"工作流节点尚未注册：{node_name}") from exc
         builder.add_node(node_name, node)
 
     builder.add_edge(START, spec.entrypoint)
@@ -49,7 +51,7 @@ def compile_workflow(
         try:
             router = ROUTER_REGISTRY[route.router]
         except KeyError as exc:
-            raise ValueError(f"workflow router is not registered: {route.router}") from exc
+            raise ValueError(f"工作流路由尚未注册：{route.router}") from exc
         builder.add_conditional_edges(
             route.source,
             router,

@@ -1,3 +1,5 @@
+"""集中定义运行和调用过程使用的状态值。"""
+
 from enum import StrEnum
 
 

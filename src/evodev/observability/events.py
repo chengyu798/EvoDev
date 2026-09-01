@@ -1,3 +1,5 @@
+"""定义用于还原运行过程的轨迹事件。"""
+
 from datetime import datetime
 
 from pydantic import BaseModel, Field

@@ -1,1 +1,1 @@
-"""Command-line entrypoints."""
+"""提供本地开发和诊断命令。"""

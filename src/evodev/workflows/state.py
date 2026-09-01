@@ -1,3 +1,5 @@
+"""定义 LangGraph 节点之间传递的精简运行状态。"""
+
 from typing import NotRequired, TypedDict
 
 
@@ -20,7 +22,7 @@ class EvoDevState(TypedDict):
     failure_analysis: NotRequired[dict[str, object] | None]
     review_result: NotRequired[dict[str, object] | None]
 
-    # State 只保存产物引用，完整日志、Diff 和测试输出由 Artifact Store 管理。
+    # 状态只保存产物引用，完整日志、代码差异和测试输出由产物仓库管理。
     baseline_result_id: NotRequired[str | None]
     test_result_id: NotRequired[str | None]
     patch_artifact_id: NotRequired[str | None]

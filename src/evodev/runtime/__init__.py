@@ -1,1 +1,1 @@
-"""Workspace, command, and sandbox runtime components."""
+"""管理任务工作区、命令执行和 Docker 沙箱。"""

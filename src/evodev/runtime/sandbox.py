@@ -1,3 +1,5 @@
+"""检查 Docker 客户端和守护进程是否可用。"""
+
 import shutil
 import subprocess
 

@@ -1,3 +1,5 @@
+"""定义命令执行后返回的标准结果。"""
+
 from pydantic import BaseModel
 
 

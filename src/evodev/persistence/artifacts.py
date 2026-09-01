@@ -1,3 +1,5 @@
+"""为每次运行生成本地产物的保存路径。"""
+
 from pathlib import Path
 
 

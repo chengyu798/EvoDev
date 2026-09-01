@@ -1,13 +1,14 @@
+// 首页展示系统状态、执行流程和运行产物。
 import { useEffect, useState } from "react";
 
 import { fetchHealth, type HealthStatus } from "./api/client";
 import { StatusBadge } from "./components/StatusBadge";
 
 const workflow = [
-  { name: "Analyze", detail: "Understand issue and repository" },
-  { name: "Implement", detail: "Create the smallest valid patch" },
-  { name: "Test", detail: "Run deterministic pytest checks" },
-  { name: "Review", detail: "Assess coverage and regression risk" },
+  { name: "分析", detail: "理解问题描述和代码仓库" },
+  { name: "实现", detail: "生成范围最小的正确补丁" },
+  { name: "测试", detail: "运行确定性的测试检查" },
+  { name: "审查", detail: "检查需求覆盖和回归风险" },
 ];
 
 function App() {
@@ -31,22 +32,22 @@ function App() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <a className="brand" href="/" aria-label="EvoDev home">
+        <a className="brand" href="/" aria-label="EvoDev 首页">
           <span className="brand__mark">E</span>
           <span>EvoDev</span>
         </a>
         <div className="topbar__status">
           {health ? (
             <>
-              <StatusBadge label={`API v${health.version}`} tone="ready" />
+              <StatusBadge label="后端服务已连接" tone="ready" />
               <StatusBadge
-                label={health.docker_available ? "Docker ready" : "Docker offline"}
+                label={health.docker_available ? "沙箱已就绪" : "沙箱未启动"}
                 tone={health.docker_available ? "ready" : "offline"}
               />
             </>
           ) : (
             <StatusBadge
-              label={healthError ? "API offline" : "Checking API"}
+              label={healthError ? "后端服务离线" : "正在检查服务"}
               tone={healthError ? "offline" : "pending"}
             />
           )}
@@ -54,27 +55,27 @@ function App() {
       </header>
 
       <section className="hero">
-        <div className="eyebrow">MULTI-AGENT SOFTWARE REPAIR</div>
-        <h1>Turn an issue into<br />verified code.</h1>
+        <div className="eyebrow">多智能体软件修复</div>
+        <h1>将问题转化为<br />可验证的代码。</h1>
         <p>
-          EvoDev coordinates analysis, implementation, deterministic tests, and review
-          inside an isolated workspace. Every decision leaves evidence.
+          EvoDev 在隔离工作区中协调问题分析、代码实现、确定性测试和补丁审查，
+          并为每一步决策保留可复查的证据。
         </p>
         <button className="primary-action" type="button" disabled>
-          Create task
+          创建任务
           <span aria-hidden="true">&rarr;</span>
         </button>
-        <span className="hero__note">Task creation is the next implementation step.</span>
+        <span className="hero__note">任务创建功能将在下一阶段接通。</span>
       </section>
 
-      <section className="workspace-grid" aria-label="EvoDev workflow overview">
+      <section className="workspace-grid" aria-label="EvoDev 工作流概览">
         <article className="panel workflow-panel">
           <div className="panel__header">
             <div>
-              <span className="panel__kicker">BUG FIX V1</span>
-              <h2>Execution graph</h2>
+              <span className="panel__kicker">缺陷修复流程</span>
+              <h2>执行流程</h2>
             </div>
-            <StatusBadge label="Architecture ready" tone="ready" />
+            <StatusBadge label="架构已就绪" tone="ready" />
           </div>
           <ol className="workflow-list">
             {workflow.map((step, index) => (
@@ -92,26 +93,26 @@ function App() {
         <article className="panel evidence-panel">
           <div className="panel__header">
             <div>
-              <span className="panel__kicker">RUN EVIDENCE</span>
-              <h2>What a run produces</h2>
+              <span className="panel__kicker">运行证据</span>
+              <h2>每次运行都会产出</h2>
             </div>
           </div>
           <dl className="evidence-list">
             <div>
-              <dt>Patch</dt>
-              <dd>Reviewable Git diff</dd>
+              <dt>代码补丁</dt>
+              <dd>可复查的代码差异</dd>
             </div>
             <div>
-              <dt>Tests</dt>
-              <dd>Baseline and final results</dd>
+              <dt>测试结果</dt>
+              <dd>修改前后的测试证据</dd>
             </div>
             <div>
-              <dt>Trace</dt>
-              <dd>Agents, tools, and transitions</dd>
+              <dt>运行轨迹</dt>
+              <dd>智能体、工具和状态变化</dd>
             </div>
             <div>
-              <dt>Experience</dt>
-              <dd>Reusable lessons from failure</dd>
+              <dt>经验记录</dt>
+              <dd>从失败中提炼的可复用经验</dd>
             </div>
           </dl>
         </article>

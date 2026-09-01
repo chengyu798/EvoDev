@@ -1,15 +1,41 @@
 # EvoDev
 
-EvoDev 是一个基于 LangGraph 的多智能体软件修复系统。V0.1 的目标是接收本地
-Python 仓库、Issue 描述和 pytest 命令，在受控工作流中生成可审查的 Patch、测试证据和
-执行轨迹。
+![EvoDev 多智能体软件修复流程](docs/assets/evodev-banner-01-workflow-v2.png)
 
-项目当前处于 V0.1 架构与骨架实现阶段，详见：
+EvoDev 是一个基于 LangGraph 的多智能体软件修复系统。系统接收本地 Python 仓库、
+问题描述和测试命令，在隔离工作区中完成分析、修改、测试和审查，并保留可复查的代码
+补丁、测试证据和运行轨迹。
 
-- `docs/01-一周开发任务清单.md`
-- `docs/02-系统架构设计.md`
+## 目录导航
 
-## 本地开发
+| 路径 | 内容 |
+|---|---|
+| `docs/` | 项目方案、开发任务清单和系统架构文档 |
+| `src/evodev/api/` | FastAPI 应用、依赖、错误处理和接口路由 |
+| `src/evodev/application/` | 任务和运行用例的应用服务 |
+| `src/evodev/domain/` | 任务、运行、智能体、工作流和经验等核心模型 |
+| `src/evodev/workflows/` | LangGraph 状态、节点、路由、工作流定义和编译器 |
+| `src/evodev/agents/` | 智能体角色、模型配置和工具权限 |
+| `src/evodev/tools/` | 向智能体开放的受控仓库工具接口 |
+| `src/evodev/runtime/` | 工作区、命令执行和 Docker 沙箱能力 |
+| `src/evodev/evaluation/` | 测试、补丁和整次运行的评测模型 |
+| `src/evodev/persistence/` | 业务数据、运行产物和检查点的持久化适配 |
+| `src/evodev/observability/` | 运行事件和完整执行轨迹 |
+| `tests/` | 后端接口、领域逻辑和工作流测试 |
+| `frontend/` | React 前端应用和组件测试 |
+| `sandbox/` | Python 代码执行沙箱镜像 |
+| `artifacts/` | 运行产生的补丁、日志和测试报告 |
+| `data/` | 本地数据库和工作流检查点 |
+
+## 关键文档
+
+- [系统方案](docs/00-EvoDev_多智能体自进化软件开发系统方案.md)
+- [一周开发任务清单](docs/01-一周开发任务清单.md)
+- [系统架构设计](docs/02-系统架构设计.md)
+
+## 本地启动
+
+启动后端：
 
 ```bash
 uv sync --dev
@@ -18,10 +44,10 @@ uv run evodev doctor
 uv run evodev serve
 ```
 
-默认 API 地址为 `http://127.0.0.1:8000`，健康检查地址为
+后端默认地址为 `http://127.0.0.1:8000`，健康检查地址为
 `http://127.0.0.1:8000/api/health`。
 
-在另一个终端启动前端：
+启动前端：
 
 ```bash
 cd frontend
@@ -34,6 +60,10 @@ npm run dev
 ```bash
 uv run pytest
 uv run ruff check .
+cd frontend
+npm run lint
+npm run test
+npm run build
 ```
 
 ## 沙箱镜像
@@ -41,3 +71,11 @@ uv run ruff check .
 ```bash
 docker build -t evodev-python:3.13 sandbox
 ```
+
+## 项目标识
+
+![EvoDev 项目标识](docs/assets/evodev-banner-03-minimal-v2.png)
+
+## 开源许可证
+
+本项目采用 [MIT License](LICENSE)。

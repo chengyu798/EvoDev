@@ -1,1 +1,1 @@
-"""HTTP API package."""
+"""对外提供 HTTP 接口。"""

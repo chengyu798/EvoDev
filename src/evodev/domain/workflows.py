@@ -1,8 +1,10 @@
+"""定义与 LangGraph 解耦的工作流结构和运行限制。"""
+
 from pydantic import BaseModel, Field, model_validator
 
 
 class WorkflowLimits(BaseModel):
-    max_repair_iterations: int = Field(default=2, ge=1, le=3)
+    max_repair_iterations: int = Field(default=3, ge=1, le=3)
     max_review_iterations: int = Field(default=1, ge=0, le=2)
 
 
@@ -39,9 +41,9 @@ class WorkflowSpec(BaseModel):
         unknown_nodes = referenced_nodes - node_names
         if unknown_nodes:
             unknown = ", ".join(sorted(unknown_nodes))
-            raise ValueError(f"workflow topology references unknown nodes: {unknown}")
+            raise ValueError(f"工作流引用了未定义节点：{unknown}")
         if len(node_names) != len(self.nodes):
-            raise ValueError("workflow nodes must be unique")
+            raise ValueError("工作流节点名称不能重复")
         return self
 
     @property

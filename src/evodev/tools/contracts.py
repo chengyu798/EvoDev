@@ -1,3 +1,5 @@
+"""定义仓库读取和补丁写入工具必须满足的接口。"""
+
 from pathlib import Path
 from typing import Protocol
 

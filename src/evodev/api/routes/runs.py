@@ -1,3 +1,5 @@
+"""提供运行查询、取消和事件查询接口。"""
+
 from typing import Annotated
 from uuid import UUID
 

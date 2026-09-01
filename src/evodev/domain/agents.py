@@ -1,3 +1,5 @@
+"""定义智能体的模型、提示词和工具权限配置。"""
+
 from pydantic import BaseModel, Field
 
 

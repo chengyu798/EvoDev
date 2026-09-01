@@ -1,3 +1,4 @@
+// 显示服务或模块的简短状态。
 type StatusBadgeProps = {
   label: string;
   tone: "ready" | "pending" | "offline";

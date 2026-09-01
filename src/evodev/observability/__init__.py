@@ -1,1 +1,1 @@
-"""Structured events and tracing for task runs."""
+"""记录任务运行期间的结构化事件和轨迹。"""

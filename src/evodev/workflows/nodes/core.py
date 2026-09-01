@@ -1,8 +1,4 @@
-"""V0.1 graph node contracts.
-
-The scaffold nodes intentionally avoid repository and LLM side effects. Concrete
-services will be injected as node dependencies during the implementation phase.
-"""
+"""定义工作流节点骨架；真实仓库和模型服务将在后续注入。"""
 
 from evodev.domain.enums import TaskRunStatus
 from evodev.workflows.state import EvoDevState
@@ -52,5 +48,5 @@ def finalize_failed(state: EvoDevState) -> dict[str, object]:
         "status": TaskRunStatus.FAILED,
         "error_code": state.get("error_code") or "REPAIR_LIMIT_REACHED",
         "error_message": state.get("error_message")
-        or "The repair workflow reached its iteration limit.",
+        or "自动修复次数已达到上限。",
     }

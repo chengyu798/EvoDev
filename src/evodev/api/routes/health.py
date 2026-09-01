@@ -1,3 +1,5 @@
+"""提供后端和 Docker 沙箱的健康状态。"""
+
 from typing import Literal
 
 from fastapi import APIRouter

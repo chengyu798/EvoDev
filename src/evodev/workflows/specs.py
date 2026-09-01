@@ -1,3 +1,5 @@
+"""声明首版缺陷修复工作流的节点、连接和限制。"""
+
 from evodev.domain.workflows import (
     WorkflowEdge,
     WorkflowLimits,
@@ -42,5 +44,5 @@ BUG_FIX_V1 = WorkflowSpec(
         ),
     ],
     terminal_nodes=["finalize_succeeded", "finalize_failed"],
-    limits=WorkflowLimits(max_repair_iterations=2, max_review_iterations=1),
+    limits=WorkflowLimits(max_repair_iterations=3, max_review_iterations=1),
 )

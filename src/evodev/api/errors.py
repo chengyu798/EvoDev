@@ -1,3 +1,5 @@
+"""将应用层异常转换为统一的 HTTP 错误响应。"""
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 

@@ -1,3 +1,5 @@
+"""实现任务与运行用例，并隔离接口层和存储层。"""
+
 from uuid import UUID
 
 from evodev.domain.enums import TaskRunStatus
@@ -14,7 +16,7 @@ class RunNotFoundError(LookupError):
 
 
 class TaskService:
-    """In-memory V0.1 scaffold; replaced by a repository implementation next."""
+    """临时在内存中保存任务，后续由数据库仓储替换。"""
 
     def __init__(self) -> None:
         self._tasks: dict[UUID, TaskRead] = {}
@@ -35,7 +37,7 @@ class TaskService:
 
 
 class RunService:
-    """In-memory run registry used while persistence and workers are implemented."""
+    """临时在内存中保存运行和事件记录。"""
 
     def __init__(self, task_service: TaskService) -> None:
         self._task_service = task_service

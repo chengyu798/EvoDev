@@ -1,3 +1,5 @@
+"""描述任务工作区并生成隔离目录路径。"""
+
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -11,7 +13,7 @@ class Workspace:
 
 
 class WorkspaceManager:
-    """Interface placeholder for isolated task workspace management."""
+    """生成任务隔离工作区路径。"""
 
     def __init__(self, root: Path) -> None:
         self.root = root

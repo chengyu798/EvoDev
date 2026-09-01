@@ -1,7 +1,5 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap");
-
 :root {
-  font-family: "Manrope", sans-serif;
+  font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
   color: #f5f4ef;
   background: #101310;
   font-synthesis: none;
@@ -59,7 +57,7 @@ textarea {
   border-radius: 8px;
   color: #101310;
   background: #b5ff57;
-  font-family: "DM Mono", monospace;
+  font-family: ui-monospace, monospace;
 }
 
 .topbar__status {
@@ -78,7 +76,7 @@ textarea {
   border-radius: 999px;
   color: #c9cec8;
   background: rgb(26 31 27 / 80%);
-  font-family: "DM Mono", monospace;
+  font-family: inherit;
   font-size: 11px;
   text-transform: uppercase;
 }
@@ -111,7 +109,7 @@ textarea {
 .eyebrow,
 .panel__kicker {
   color: #b5ff57;
-  font-family: "DM Mono", monospace;
+  font-family: inherit;
   font-size: 12px;
   letter-spacing: 0.14em;
 }
@@ -202,7 +200,7 @@ textarea {
 
 .workflow-list__index {
   color: #687068;
-  font-family: "DM Mono", monospace;
+  font-family: ui-monospace, monospace;
   font-size: 12px;
 }
 

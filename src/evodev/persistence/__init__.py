@@ -1,1 +1,1 @@
-"""Persistence adapters for domain records and LangGraph checkpoints."""
+"""保存业务数据、运行产物和 LangGraph 检查点。"""

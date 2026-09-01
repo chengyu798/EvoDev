@@ -1,3 +1,5 @@
+"""从应用状态中获取接口所需的服务实例。"""
+
 from fastapi import Request
 
 from evodev.application.services import RunService, TaskService

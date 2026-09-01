@@ -1,3 +1,5 @@
+"""定义最终评测需要汇总的结果和成本指标。"""
+
 from pydantic import BaseModel, Field
 
 

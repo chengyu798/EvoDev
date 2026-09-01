@@ -1,3 +1,4 @@
+// 配置前端开发服务、后端代理和组件测试环境。
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 

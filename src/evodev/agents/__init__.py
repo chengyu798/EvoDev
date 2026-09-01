@@ -1,1 +1,1 @@
-"""Agent definitions and model-facing runtime adapters."""
+"""集中管理智能体定义和模型调用适配。"""

@@ -1,1 +1,1 @@
-"""API route modules."""
+"""按业务对象组织 API 路由。"""

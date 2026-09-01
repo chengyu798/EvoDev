@@ -1,3 +1,5 @@
+"""提供系统默认的智能体角色和工具权限。"""
+
 from evodev.domain.agents import AgentDefinition
 
 
@@ -5,16 +7,16 @@ def default_agent_catalog(model: str) -> dict[str, AgentDefinition]:
     return {
         "analyst": AgentDefinition(
             id="analyst@1",
-            name="Analyst",
-            role="Analyze the issue and produce a repository-grounded implementation plan.",
+            name="问题分析智能体",
+            role="结合问题描述和仓库内容生成修改计划。",
             model=model,
             allowed_tools=["list_files", "read_file", "search_text", "git_diff"],
             output_schema="IssueAnalysis",
         ),
         "developer": AgentDefinition(
             id="developer@1",
-            name="Developer",
-            role="Implement the smallest correct patch using controlled repository tools.",
+            name="代码开发智能体",
+            role="通过受控仓库工具实现范围最小的正确补丁。",
             model=model,
             allowed_tools=[
                 "list_files",
@@ -28,16 +30,16 @@ def default_agent_catalog(model: str) -> dict[str, AgentDefinition]:
         ),
         "failure_analyzer": AgentDefinition(
             id="failure-analyzer@1",
-            name="Failure Analyzer",
-            role="Explain test failures and recommend a targeted repair.",
+            name="失败分析智能体",
+            role="解释测试失败原因并给出针对性的修复建议。",
             model=model,
             allowed_tools=["read_file", "search_text", "git_diff"],
             output_schema="FailureAnalysis",
         ),
         "reviewer": AgentDefinition(
             id="reviewer@1",
-            name="Reviewer",
-            role="Review requirement coverage, patch scope, tests, and regression risk.",
+            name="代码审查智能体",
+            role="检查需求覆盖、补丁范围、测试情况和回归风险。",
             model=model,
             allowed_tools=["read_file", "search_text", "git_diff"],
             output_schema="ReviewResult",

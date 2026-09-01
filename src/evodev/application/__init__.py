@@ -1,1 +1,1 @@
-"""Application services coordinating domain and infrastructure components."""
+"""协调领域模型、工作流和基础设施。"""

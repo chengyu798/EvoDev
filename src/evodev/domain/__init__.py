@@ -1,1 +1,1 @@
-"""Domain models that remain independent from framework implementations."""
+"""定义不依赖具体框架的核心业务模型。"""

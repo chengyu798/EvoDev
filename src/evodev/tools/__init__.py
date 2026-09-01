@@ -1,1 +1,1 @@
-"""Controlled tools exposed to EvoDev agents."""
+"""向智能体提供经过权限控制的操作工具。"""

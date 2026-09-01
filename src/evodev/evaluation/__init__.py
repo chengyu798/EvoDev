@@ -1,1 +1,1 @@
-"""Deterministic test, patch, and run evaluation."""
+"""对测试、补丁和整次运行进行确定性评测。"""

@@ -1,3 +1,5 @@
+"""验证健康检查接口返回必要的运行环境信息。"""
+
 from fastapi.testclient import TestClient
 
 from evodev.api.app import app
