@@ -1,0 +1,16 @@
+from pathlib import Path
+from typing import Protocol
+
+
+class RepositoryTools(Protocol):
+    def list_files(self, workspace: Path) -> list[str]: ...
+
+    def read_file(self, workspace: Path, relative_path: str) -> str: ...
+
+    def search_text(self, workspace: Path, query: str) -> list[str]: ...
+
+    def git_diff(self, workspace: Path) -> str: ...
+
+
+class EditTools(Protocol):
+    def apply_patch(self, workspace: Path, patch: str) -> None: ...
