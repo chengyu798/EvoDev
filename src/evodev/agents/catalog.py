@@ -16,7 +16,10 @@ def default_agent_catalog(model: str) -> dict[str, AgentDefinition]:
         "developer": AgentDefinition(
             id="developer@1",
             name="代码开发智能体",
-            role="通过受控仓库工具实现范围最小的正确补丁。",
+            role=(
+                "通过受控仓库工具实现范围最小的正确补丁。必须使用 apply_patch 工具实际"
+                "应用修改，并根据工具错误修正补丁，最后使用测试和 Git Diff 验证结果。"
+            ),
             model=model,
             allowed_tools=[
                 "list_files",

@@ -28,7 +28,6 @@ BUG_FIX_V1 = WorkflowSpec(
         WorkflowEdge(source="run_baseline_tests", target="analyze_issue"),
         WorkflowEdge(source="analyze_issue", target="implement_patch"),
         WorkflowEdge(source="implement_patch", target="run_tests"),
-        WorkflowEdge(source="diagnose_failure", target="implement_patch"),
         WorkflowEdge(source="final_evaluation", target="finalize_succeeded"),
     ],
     routes=[
@@ -36,6 +35,11 @@ BUG_FIX_V1 = WorkflowSpec(
             source="run_tests",
             router="route_after_tests",
             targets=["review_patch", "diagnose_failure", "finalize_failed"],
+        ),
+        WorkflowRoute(
+            source="diagnose_failure",
+            router="route_after_diagnosis",
+            targets=["implement_patch", "finalize_failed"],
         ),
         WorkflowRoute(
             source="review_patch",

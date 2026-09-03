@@ -18,9 +18,13 @@ class Settings(BaseSettings):
 
     environment: str = "development"
     database_url: str = "sqlite:///./data/evodev.db"
-    artifacts_dir: Path = Path("artifacts")
+    outputs_dir: Path = Path("outputs")
     workspaces_dir: Path = Path(".evodev/workspaces")
     sandbox_image: str = "evodev-python:3.13"
+    sandbox_network: str = "none"
+    sandbox_cpus: float = 2.0
+    sandbox_memory: str = "2g"
+    sandbox_pids_limit: int = 256
     command_timeout_seconds: int = 120
     max_command_output_bytes: int = 1_048_576
     llm_model: str | None = None
@@ -28,7 +32,7 @@ class Settings(BaseSettings):
     llm_base_url: str | None = None
 
     def ensure_directories(self) -> None:
-        self.artifacts_dir.mkdir(parents=True, exist_ok=True)
+        self.outputs_dir.mkdir(parents=True, exist_ok=True)
         self.workspaces_dir.mkdir(parents=True, exist_ok=True)
 
 

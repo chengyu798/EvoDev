@@ -5,7 +5,11 @@ from langgraph.graph.state import CompiledStateGraph
 
 from evodev.domain.workflows import WorkflowSpec
 from evodev.workflows import nodes
-from evodev.workflows.routers import route_after_review, route_after_tests
+from evodev.workflows.routers import (
+    route_after_diagnosis,
+    route_after_review,
+    route_after_tests,
+)
 from evodev.workflows.specs import BUG_FIX_V1
 from evodev.workflows.state import EvoDevState
 
@@ -24,6 +28,7 @@ NODE_REGISTRY = {
 
 ROUTER_REGISTRY = {
     "route_after_tests": route_after_tests,
+    "route_after_diagnosis": route_after_diagnosis,
     "route_after_review": route_after_review,
 }
 
@@ -32,13 +37,15 @@ def compile_workflow(
     spec: WorkflowSpec,
     *,
     checkpointer: object | None = None,
+    node_registry: dict[str, object] | None = None,
 ) -> CompiledStateGraph:
     """将 EvoDev 工作流定义编译为 LangGraph。"""
     builder = StateGraph(EvoDevState)
+    registered_nodes = NODE_REGISTRY if node_registry is None else node_registry
 
     for node_name in spec.nodes:
         try:
-            node = NODE_REGISTRY[node_name]
+            node = registered_nodes[node_name]
         except KeyError as exc:
             raise ValueError(f"工作流节点尚未注册：{node_name}") from exc
         builder.add_node(node_name, node)
@@ -64,5 +71,13 @@ def compile_workflow(
     return builder.compile(checkpointer=checkpointer)
 
 
-def build_bug_fix_graph(*, checkpointer: object | None = None) -> CompiledStateGraph:
-    return compile_workflow(BUG_FIX_V1, checkpointer=checkpointer)
+def build_bug_fix_graph(
+    *,
+    checkpointer: object | None = None,
+    node_registry: dict[str, object] | None = None,
+) -> CompiledStateGraph:
+    return compile_workflow(
+        BUG_FIX_V1,
+        checkpointer=checkpointer,
+        node_registry=node_registry,
+    )

@@ -11,8 +11,9 @@ dist/
 .env
 data/*.db
 data/*.db-*
-artifacts/*
-!artifacts/.gitkeep
+outputs/*
+!outputs/.gitkeep
+!outputs/README.md
 .evodev/
 frontend/node_modules/
 frontend/dist/

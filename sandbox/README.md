@@ -1,7 +1,8 @@
 # Docker 沙箱
 
-本目录保存代码执行沙箱的镜像定义。当前 `Dockerfile` 提供 Python 3.13 非 root 基础环境，
-依赖安装、工作区挂载、资源限制和网络策略将由后续的 Sandbox Runtime 管理。
+本目录保存代码执行沙箱的镜像定义。`Dockerfile` 提供 Python 3.13、pytest 和非 root
+基础环境。`DockerCommandRunner` 负责挂载任务工作区，并实施网络、CPU、内存、进程数量、
+超时和输出大小限制。
 
 ```bash
 docker build -t evodev-python:3.13 sandbox

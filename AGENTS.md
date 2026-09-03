@@ -4,7 +4,7 @@
 
 EvoDev 是一个处于早期阶段的 Python 3.13 项目，目标是构建基于 LangGraph 的多智能体软件修复系统。Python 包代码位于 `src/evodev/`。新增模块应归入已有的领域目录，例如 `agents/`、`application/`、`domain/`、`runtime/`、`tools/` 和 `workflows/`。HTTP 接口放在 `src/evodev/api/`，持久化逻辑放在 `persistence/`，评测与运行轨迹代码分别放在 `evaluation/` 和 `observability/`。
 
-Python 测试统一放在 `tests/`，目录结构应尽量与源码对应。前端代码放在 `frontend/src/`，接口客户端和可复用组件分别放在现有的 `api/` 与 `components/` 目录。架构决策和项目文档位于 `docs/`；新增文档应按 `03-接口设计.md` 的格式连续编号。运行产物应写入 `artifacts/` 或 `data/`，不要混入源码目录。
+Python 测试统一放在 `tests/`，目录结构应尽量与源码对应。前端代码放在 `frontend/src/`，接口客户端和可复用组件分别放在现有的 `api/` 与 `components/` 目录。架构决策和项目文档位于 `docs/`；新增文档应按 `03-接口设计.md` 的格式连续编号。运行输出应写入 `outputs/` 或 `data/`，不要混入源码目录。
 
 ## 构建、测试与本地开发
 

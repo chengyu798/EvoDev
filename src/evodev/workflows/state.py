@@ -27,11 +27,16 @@ class EvoDevState(TypedDict):
     test_result_id: NotRequired[str | None]
     patch_artifact_id: NotRequired[str | None]
     evaluation_result_id: NotRequired[str | None]
+    agent_invocation_ids: NotRequired[list[str]]
 
     changed_files: list[str]
     retrieved_experience_ids: list[str]
     iteration: int
     tests_passed: NotRequired[bool | None]
+    baseline_passed: NotRequired[bool | None]
+    failure_retryable: NotRequired[bool | None]
     review_passed: NotRequired[bool | None]
+    prompt_tokens: NotRequired[int]
+    completion_tokens: NotRequired[int]
     error_code: NotRequired[str | None]
     error_message: NotRequired[str | None]
