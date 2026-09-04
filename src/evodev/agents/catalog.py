@@ -10,7 +10,7 @@ def default_agent_catalog(model: str) -> dict[str, AgentDefinition]:
             name="问题分析智能体",
             role="结合问题描述和仓库内容生成修改计划。",
             prompt_file="analyst.md",
-            prompt_version="2",
+            prompt_version="3",
             model=model,
             allowed_tools=["list_files", "read_file", "search_text", "git_diff"],
             output_schema="IssueAnalysis",
@@ -23,7 +23,7 @@ def default_agent_catalog(model: str) -> dict[str, AgentDefinition]:
                 "应用修改，并根据工具错误修正补丁，最后使用测试和 Git Diff 验证结果。"
             ),
             prompt_file="developer.md",
-            prompt_version="2",
+            prompt_version="3",
             model=model,
             allowed_tools=[
                 "list_files",
@@ -54,5 +54,16 @@ def default_agent_catalog(model: str) -> dict[str, AgentDefinition]:
             model=model,
             allowed_tools=["read_file", "search_text", "git_diff"],
             output_schema="ReviewResult",
+        ),
+        "prompt_optimizer": AgentDefinition(
+            id="prompt-optimizer@1",
+            name="提示词优化智能体",
+            role="从带真实反馈的经验中生成受限的候选 Prompt 指导层。",
+            prompt_file="prompt_optimizer.md",
+            prompt_version="1",
+            model=model,
+            allowed_tools=[],
+            output_schema="PromptOptimization",
+            max_tool_calls=2,
         ),
     }

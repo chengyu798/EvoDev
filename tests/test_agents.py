@@ -95,7 +95,12 @@ def test_agent_executes_allowed_tool_then_returns_structured_result(tmp_path: Pa
 
 
 def test_agent_rejects_invalid_structured_output(tmp_path: Path) -> None:
-    client = ScriptedModelClient([ModelReply(content='{"problem_summary": "不完整"}')])
+    client = ScriptedModelClient(
+        [
+            ModelReply(content='{"problem_summary": "不完整"}'),
+            ModelReply(content='{"problem_summary": "仍不完整"}'),
+        ]
+    )
     toolbox = AgentToolbox(RepositoryTools(), EditTools(), GitTools())
 
     with pytest.raises(AgentExecutionError, match="结构化输出"):
@@ -107,6 +112,37 @@ def test_agent_rejects_invalid_structured_output(tmp_path: Path) -> None:
         )
 
 
+def test_agent_asks_model_to_correct_invalid_structured_output(tmp_path: Path) -> None:
+    client = ScriptedModelClient(
+        [
+            ModelReply(
+                content='{"problem_summary": "不完整"}',
+                prompt_tokens=2,
+                completion_tokens=1,
+            ),
+            ModelReply(
+                content=valid_analysis_json(),
+                prompt_tokens=3,
+                completion_tokens=4,
+            ),
+        ]
+    )
+    toolbox = AgentToolbox(RepositoryTools(), EditTools(), GitTools())
+
+    invocation = AgentExecutor(client, toolbox).invoke(
+        agent=analyst_definition(),
+        workspace=tmp_path,
+        task={"issue_title": "修复加法"},
+        output_schema=IssueAnalysis,
+    )
+
+    assert invocation.output.problem_summary == "加法实现错误"
+    assert invocation.prompt_tokens == 5
+    assert invocation.completion_tokens == 5
+    assert "不符合指定 JSON Schema" in client.messages[1][-1]["content"]
+    assert "implementation_steps" in client.messages[1][-1]["content"]
+
+
 def test_all_agent_prompts_are_loaded_from_independent_files() -> None:
     from evodev.agents.catalog import default_agent_catalog
 
@@ -116,11 +152,28 @@ def test_all_agent_prompts_are_loaded_from_independent_files() -> None:
         for name, agent in default_agent_catalog("test-model").items()
     }
 
-    assert len(set(prompts.values())) == 4
+    assert len(set(prompts.values())) == 5
     assert "只负责分析" in prompts["analyst"]
     assert "必须使用 apply_patch" in prompts["developer"]
     assert "是否适合自动重试" in prompts["failure_analyzer"]
     assert "判断补丁是否可以通过审查" in prompts["reviewer"]
+    assert "Prompt 优化智能体" in prompts["prompt_optimizer"]
+
+
+def test_prompt_repository_appends_active_evolution_guidance() -> None:
+    class GuidanceProvider:
+        def get_active_guidance(self, agent_role: str) -> tuple[str, str] | None:
+            if agent_role == "analyst":
+                return "先验证历史经验是否适用于当前代码。", "1+e2"
+            return None
+
+    rendered = PromptRepository(
+        guidance_provider=GuidanceProvider()
+    ).render_with_version(analyst_definition(), IssueAnalysis)
+
+    assert "已通过评测的进化指导" in rendered.content
+    assert "先验证历史经验" in rendered.content
+    assert rendered.effective_version == "1+e2"
 
 
 def test_agent_rejects_unsafe_prompt_file_name() -> None:

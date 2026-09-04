@@ -1,6 +1,7 @@
 """执行带工具权限和结构化输出约束的智能体。"""
 
 import json
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TypeVar
@@ -27,6 +28,7 @@ class AgentInvocation:
     tool_calls: list[dict[str, object]]
     prompt_tokens: int
     completion_tokens: int
+    duration_ms: int = 0
     agent_id: str = ""
     model: str = ""
     prompt_version: str = ""
@@ -53,10 +55,12 @@ class AgentExecutor:
         task: dict[str, object],
         output_schema: type[OutputT],
     ) -> AgentInvocation:
+        started_at = time.perf_counter()
+        rendered_prompt = self.prompt_repository.render_with_version(agent, output_schema)
         messages: list[dict[str, Any]] = [
             {
                 "role": "system",
-                "content": self.prompt_repository.render(agent, output_schema),
+                "content": rendered_prompt.content,
             },
             {
                 "role": "user",
@@ -67,6 +71,7 @@ class AgentExecutor:
         trace: list[dict[str, object]] = []
         prompt_tokens = 0
         completion_tokens = 0
+        output_repair_attempted = False
 
         for _ in range(agent.max_tool_calls + 1):
             reply = self.client.complete(
@@ -78,15 +83,35 @@ class AgentExecutor:
             prompt_tokens += reply.prompt_tokens
             completion_tokens += reply.completion_tokens
             if not reply.tool_calls:
-                output = self._validate_output(reply.content, output_schema)
+                try:
+                    output = self._validate_output(reply.content, output_schema)
+                except AgentExecutionError as exc:
+                    if output_repair_attempted:
+                        raise
+                    output_repair_attempted = True
+                    messages.extend(
+                        [
+                            {"role": "assistant", "content": reply.content or ""},
+                            {
+                                "role": "user",
+                                "content": (
+                                    "上一条最终结果不符合指定 JSON Schema。请保留原结论，"
+                                    "修正缺失字段或字段类型，只返回合法 JSON，不要调用工具。"
+                                    f"校验错误：{exc}"
+                                ),
+                            },
+                        ]
+                    )
+                    continue
                 return AgentInvocation(
                     output=output,
                     tool_calls=trace,
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
+                    duration_ms=int((time.perf_counter() - started_at) * 1000),
                     agent_id=agent.id,
                     model=agent.model,
-                    prompt_version=agent.prompt_version,
+                    prompt_version=rendered_prompt.effective_version,
                 )
 
             messages.append(
@@ -145,4 +170,10 @@ class AgentExecutor:
         try:
             return schema.model_validate_json(content)
         except ValidationError as exc:
-            raise AgentExecutionError("Agent 返回结果不符合结构化输出要求") from exc
+            details = "; ".join(
+                f"{'.'.join(str(item) for item in error['loc']) or '根对象'}：{error['msg']}"
+                for error in exc.errors(include_url=False, include_input=False)
+            )
+            raise AgentExecutionError(
+                f"Agent 返回结果不符合结构化输出要求：{details}"
+            ) from exc

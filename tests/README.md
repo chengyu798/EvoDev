@@ -8,7 +8,9 @@
 
 `test_agents.py` 验证 Agent 提示词加载、工具调用循环、权限边界和结构化输出；
 `test_repair_workflow.py` 验证失败重试、三次终止、审查和产物生成；
-`test_postgres_integration.py` 使用可选测试数据库验证 PostgreSQL 检查点读写和删除。
+`test_experiences.py` 验证经验标签和失败轨迹提取；`test_postgres_integration.py` 使用可选
+测试数据库验证 PostgreSQL 检查点及 Experience 的读写、检索和幂等计数。
+`test_evolution.py` 验证 Prompt A/B 升级门槛和独立 Worker 编排。
 
 ```bash
 uv run pytest

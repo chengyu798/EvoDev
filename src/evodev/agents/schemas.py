@@ -38,3 +38,12 @@ class ReviewResult(BaseModel):
     requirement_coverage: list[str] = Field(default_factory=list)
     risks: list[str] = Field(default_factory=list)
     required_changes: list[str] = Field(default_factory=list)
+
+
+class PromptOptimization(BaseModel):
+    """Prompt Optimizer 生成的候选指导层。"""
+
+    hypothesis: str = Field(min_length=1, max_length=2_000)
+    guidance: str = Field(min_length=20, max_length=4_000)
+    expected_effects: list[str] = Field(min_length=1, max_length=10)
+    risks: list[str] = Field(default_factory=list, max_length=10)

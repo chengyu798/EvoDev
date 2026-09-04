@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+from uuid import UUID
 
 import structlog
 
@@ -14,7 +15,13 @@ from evodev.agents.schemas import (
     ReviewResult,
 )
 from evodev.domain.enums import TaskRunStatus
+from evodev.domain.experiences import ExperienceOutcome
+from evodev.evaluation.experiences import (
+    build_experience_tags,
+    extract_failure_experience,
+)
 from evodev.persistence.artifacts import LocalArtifactStore
+from evodev.persistence.experiences import ExperienceStoreProtocol
 from evodev.runtime.testing import PytestRunner
 from evodev.runtime.workspace import WorkspaceManager
 from evodev.tools.edit import EditTools
@@ -33,6 +40,7 @@ class WorkflowNodeDependencies:
     edit_tools: EditTools
     git_tools: GitTools
     artifact_store: LocalArtifactStore
+    experience_store: ExperienceStoreProtocol
     agents: RepairAgentsProtocol
 
 
@@ -89,14 +97,36 @@ class RepairWorkflowNodes:
 
     def analyze_issue(self, state: EvoDevState) -> dict[str, object]:
         logger.info("问题分析智能体正在分析问题")
+        tags = build_experience_tags(
+            issue_title=state["issue_title"],
+            issue_body=state["issue_body"],
+        )
+        experiences = self.dependencies.experience_store.search(
+            task_type="bug_fix",
+            tags=tags,
+            limit=3,
+        )
+        experience_ids = [experience.id for experience in experiences]
+        self.dependencies.experience_store.record_usage(
+            experience_ids,
+            UUID(state["run_id"]),
+        )
+        if experiences:
+            logger.info("已检索并注入历史经验", 数量=len(experiences))
         invocation = self.dependencies.agents.analyze(
             workspace=self._workspace(state),
-            task=self._base_task(state),
+            task=self._base_task(state)
+            | {
+                "historical_experiences": [
+                    experience.prompt_context() for experience in experiences
+                ]
+            },
         )
         output = self._output(invocation, IssueAnalysis)
         return {
             "status": TaskRunStatus.ANALYZING.value,
             "issue_analysis": output.model_dump(),
+            "retrieved_experience_ids": [str(item) for item in experience_ids],
             **self._invocation_update(state, "analyst-0.json", invocation),
         }
 
@@ -114,6 +144,7 @@ class RepairWorkflowNodes:
                 "failure_analysis": state.get("failure_analysis"),
                 "review_result": state.get("review_result"),
                 "current_diff": diff_before,
+                "historical_experiences": self._experience_context(state),
             },
         )
         output = self._output(invocation, ImplementationResult)
@@ -238,13 +269,81 @@ class RepairWorkflowNodes:
         logger.info("多智能体修复流程已成功完成")
         return {"status": TaskRunStatus.SUCCEEDED.value}
 
-    @staticmethod
-    def finalize_failed(state: EvoDevState) -> dict[str, object]:
+    def finalize_failed(self, state: EvoDevState) -> dict[str, object]:
         logger.error("多智能体修复流程失败")
+        experience = self.dependencies.experience_store.save(
+            extract_failure_experience(state)
+        )
+        self.dependencies.artifact_store.write_json(
+            state["run_id"],
+            "experience.json",
+            experience.model_dump(),
+        )
+        logger.info("已从失败轨迹生成经验", 经验编号=str(experience.id))
         return {
             "status": TaskRunStatus.FAILED.value,
             "error_code": state.get("error_code") or "REPAIR_LIMIT_REACHED",
             "error_message": state.get("error_message") or "自动修复次数已达到上限。",
+            "generated_experience_id": str(experience.id),
+        }
+
+    def record_run_metrics(
+        self,
+        state: EvoDevState,
+        *,
+        duration_ms: int,
+        workflow_version: str,
+    ) -> dict[str, object]:
+        """在工作流结束后保存完整运行指标。"""
+        retry_count = max(state.get("iteration", 0) - 1, 0)
+        metrics = {
+            "run_id": state["run_id"],
+            "status": state["status"],
+            "workflow_version": workflow_version,
+            "agent_versions": state.get("agent_versions", {}),
+            "iteration": state.get("iteration", 0),
+            "retry_count": retry_count,
+            "prompt_tokens": state.get("prompt_tokens", 0),
+            "completion_tokens": state.get("completion_tokens", 0),
+            "duration_ms": duration_ms,
+            "retrieved_experience_ids": state.get("retrieved_experience_ids", []),
+            "generated_experience_id": state.get("generated_experience_id"),
+            "experience_feedback": state.get("experience_feedback"),
+            "experience_feedback_count": state.get("experience_feedback_count", 0),
+            "prompt_evolution_job_id": state.get("prompt_evolution_job_id"),
+        }
+        artifact_id = self.dependencies.artifact_store.write_json(
+            state["run_id"],
+            "run-metrics.json",
+            metrics,
+        )
+        return {
+            "workflow_version": workflow_version,
+            "retry_count": retry_count,
+            "duration_ms": duration_ms,
+            "run_metrics_id": artifact_id,
+        }
+
+    def finalize_experience_feedback(self, state: EvoDevState) -> dict[str, object]:
+        """根据真实终态回写历史经验效果。"""
+        if state["status"] == TaskRunStatus.SUCCEEDED.value:
+            outcome = ExperienceOutcome.SUCCESS
+        elif state.get("error_code") in {
+            "REPAIR_LIMIT_REACHED",
+            "NON_RETRYABLE_FAILURE",
+        }:
+            outcome = ExperienceOutcome.FAILURE
+        else:
+            outcome = ExperienceOutcome.IGNORED
+        count = self.dependencies.experience_store.finalize_run_usage(
+            UUID(state["run_id"]),
+            outcome,
+        )
+        if count:
+            logger.info("已回写历史经验使用效果", 结果=outcome.value, 数量=count)
+        return {
+            "experience_feedback": outcome.value,
+            "experience_feedback_count": count,
         }
 
     @staticmethod
@@ -260,7 +359,15 @@ class RepairWorkflowNodes:
             "issue_title": state["issue_title"],
             "issue_body": state["issue_body"],
             "test_command": state["test_command"],
+            "constraints": state.get("constraints", []),
         }
+
+    def _experience_context(self, state: EvoDevState) -> list[dict[str, object]]:
+        ids = [UUID(value) for value in state.get("retrieved_experience_ids", [])]
+        return [
+            experience.prompt_context()
+            for experience in self.dependencies.experience_store.get_many(ids)
+        ]
 
     @staticmethod
     def _output(invocation: AgentInvocation, schema: type[object]):
@@ -285,13 +392,19 @@ class RepairWorkflowNodes:
                 "tool_calls": invocation.tool_calls,
                 "prompt_tokens": invocation.prompt_tokens,
                 "completion_tokens": invocation.completion_tokens,
+                "duration_ms": invocation.duration_ms,
             },
+        )
+        agent_versions = dict(state.get("agent_versions", {}))
+        agent_versions[invocation.agent_id] = (
+            f"prompt={invocation.prompt_version};model={invocation.model}"
         )
         return {
             "agent_invocation_ids": [*state.get("agent_invocation_ids", []), artifact_id],
             "prompt_tokens": state.get("prompt_tokens", 0) + invocation.prompt_tokens,
             "completion_tokens": state.get("completion_tokens", 0)
             + invocation.completion_tokens,
+            "agent_versions": agent_versions,
         }
 
     @staticmethod

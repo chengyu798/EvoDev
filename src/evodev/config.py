@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://evodev:evodev@localhost:55432/evodev"
     outputs_dir: Path = Path("outputs")
     workspaces_dir: Path = Path(".evodev/workspaces")
+    prompt_benchmarks_file: Path = Path("examples/prompt-evolution-benchmarks.json")
+    prompt_evolution_auto_enqueue: bool = False
+    prompt_evolution_min_experiences: int = 3
     sandbox_image: str = "evodev-python:3.13"
     sandbox_network: str = "none"
     sandbox_cpus: float = 2.0

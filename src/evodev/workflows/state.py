@@ -12,6 +12,7 @@ class EvoDevState(TypedDict):
     issue_title: str
     issue_body: str
     test_command: str
+    constraints: NotRequired[list[str]]
     max_iterations: int
 
     workspace_path: NotRequired[str | None]
@@ -28,9 +29,16 @@ class EvoDevState(TypedDict):
     patch_artifact_id: NotRequired[str | None]
     evaluation_result_id: NotRequired[str | None]
     agent_invocation_ids: NotRequired[list[str]]
+    generated_experience_id: NotRequired[str | None]
+    experience_feedback: NotRequired[str | None]
+    experience_feedback_count: NotRequired[int]
+    prompt_evolution_job_id: NotRequired[str | None]
+    run_metrics_id: NotRequired[str | None]
 
     changed_files: list[str]
     retrieved_experience_ids: list[str]
+    agent_versions: NotRequired[dict[str, str]]
+    workflow_version: NotRequired[str]
     iteration: int
     tests_passed: NotRequired[bool | None]
     baseline_passed: NotRequired[bool | None]
@@ -38,5 +46,7 @@ class EvoDevState(TypedDict):
     review_passed: NotRequired[bool | None]
     prompt_tokens: NotRequired[int]
     completion_tokens: NotRequired[int]
+    retry_count: NotRequired[int]
+    duration_ms: NotRequired[int]
     error_code: NotRequired[str | None]
     error_message: NotRequired[str | None]

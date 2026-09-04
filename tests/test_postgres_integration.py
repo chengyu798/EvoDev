@@ -1,4 +1,4 @@
-"""使用真实 PostgreSQL 验证 LangGraph 检查点读写。"""
+"""使用真实 PostgreSQL 验证检查点和经验存储。"""
 
 import os
 from typing import TypedDict
@@ -6,8 +6,14 @@ from uuid import uuid4
 
 import pytest
 from langgraph.graph import END, START, StateGraph
+from psycopg import connect
 
+from evodev.agents.schemas import PromptOptimization
+from evodev.domain.evolution import PromptEvaluationComparison, PromptVersionStatus
+from evodev.domain.experiences import Experience, ExperienceOutcome, ExperienceStatus
 from evodev.persistence.checkpoints import PostgresCheckpointStore
+from evodev.persistence.evolution import PostgresPromptEvolutionStore
+from evodev.persistence.experiences import PostgresExperienceStore
 
 
 class CounterState(TypedDict):
@@ -40,3 +46,153 @@ def test_postgres_checkpointer_persists_and_deletes_thread() -> None:
         store.delete_thread(thread_id)
 
     assert store.delete_thread(thread_id) is False
+
+
+@pytest.mark.skipif(
+    not os.getenv("EVODEV_TEST_DATABASE_URL"),
+    reason="未配置 PostgreSQL 集成测试数据库",
+)
+def test_postgres_experience_store_searches_and_counts_usage_once() -> None:
+    database_url = os.environ["EVODEV_TEST_DATABASE_URL"]
+    store = PostgresExperienceStore(database_url)
+    experience = Experience(
+        source_run_id=uuid4(),
+        tags=["task:bug_fix", "term:unique_calculator"],
+        failure_pattern="计算结果断言失败",
+        lesson="核对运算符和边界条件",
+        recommended_actions=["读取实现", "运行定向测试"],
+    )
+    consumer_run_id = uuid4()
+
+    try:
+        saved = store.save(experience)
+        found = store.search(
+            task_type="bug_fix",
+            tags=["task:bug_fix", "term:unique_calculator"],
+        )
+        first_count = store.record_usage([saved.id], consumer_run_id)
+        second_count = store.record_usage([saved.id], consumer_run_id)
+        feedback_count = store.finalize_run_usage(
+            consumer_run_id,
+            ExperienceOutcome.SUCCESS,
+        )
+        repeated_feedback_count = store.finalize_run_usage(
+            consumer_run_id,
+            ExperienceOutcome.FAILURE,
+        )
+        reloaded = store.get_many([saved.id])[0]
+
+        assert found[0].id == saved.id
+        assert first_count == 1
+        assert second_count == 0
+        assert feedback_count == 1
+        assert repeated_feedback_count == 0
+        assert reloaded.usage_count == 1
+        assert reloaded.success_count == 1
+        assert reloaded.failure_count == 0
+        assert reloaded.quality_score == pytest.approx(2 / 3)
+
+        for _ in range(3):
+            failed_run_id = uuid4()
+            store.record_usage([saved.id], failed_run_id)
+            store.finalize_run_usage(failed_run_id, ExperienceOutcome.FAILURE)
+        disabled = store.get_many([saved.id])[0]
+        no_longer_retrieved = store.search(
+            task_type="bug_fix",
+            tags=["term:unique_calculator"],
+        )
+        assert disabled.status is ExperienceStatus.DISABLED
+        assert disabled.quality_score == pytest.approx(2 / 6)
+        assert all(item.id != saved.id for item in no_longer_retrieved)
+    finally:
+        with connect(database_url) as connection:
+            connection.execute(
+                "DELETE FROM evodev_experiences WHERE id = %s",
+                (experience.id,),
+            )
+            connection.commit()
+
+
+@pytest.mark.skipif(
+    not os.getenv("EVODEV_TEST_DATABASE_URL"),
+    reason="未配置 PostgreSQL 集成测试数据库",
+)
+def test_postgres_prompt_versions_activate_and_rollback() -> None:
+    database_url = os.environ["EVODEV_TEST_DATABASE_URL"]
+    store = PostgresPromptEvolutionStore(database_url)
+    role = f"integration-{uuid4().hex}"
+    job_ids = []
+    version_ids = []
+
+    try:
+        first_job = store.enqueue(agent_role=role)
+        job_ids.append(first_job.id)
+        claimed = store.claim_next(role)
+        assert claimed is not None
+        assert claimed.id == first_job.id
+        first = store.create_candidate(
+            job_id=claimed.id,
+            agent_role=role,
+            base_prompt_version="3",
+            optimization=PromptOptimization(
+                hypothesis="减少无效修改",
+                guidance="修改前先核对失败断言与当前实现，确认根因后只修改必要代码。",
+                expected_effects=["减少重试"],
+            ),
+            source_experience_ids=[],
+        )
+        version_ids.append(first.id)
+        first = store.finish_evaluation(
+            job_id=claimed.id,
+            candidate_id=first.id,
+            comparison=PromptEvaluationComparison(
+                baseline=[], candidate=[], promoted=True, reason="集成测试激活"
+            ),
+        )
+        assert first.status is PromptVersionStatus.ACTIVE
+
+        second_job = store.enqueue(agent_role=role)
+        job_ids.append(second_job.id)
+        claimed = store.claim_next(role)
+        assert claimed is not None
+        second = store.create_candidate(
+            job_id=claimed.id,
+            agent_role=role,
+            base_prompt_version="3",
+            optimization=PromptOptimization(
+                hypothesis="进一步减少无效修改",
+                guidance="先运行定向测试，再检查差异范围并避免修改与问题无关的文件。",
+                expected_effects=["缩小补丁"],
+            ),
+            source_experience_ids=[],
+        )
+        version_ids.append(second.id)
+        store.finish_evaluation(
+            job_id=claimed.id,
+            candidate_id=second.id,
+            comparison=PromptEvaluationComparison(
+                baseline=[], candidate=[], promoted=True, reason="集成测试升级"
+            ),
+        )
+
+        active = store.get_active(role)
+        assert active is not None
+        assert active.id == second.id
+        rolled_back = store.rollback(role)
+        assert rolled_back is not None
+        assert rolled_back.id == first.id
+        assert store.get_active_guidance(role) == (
+            first.guidance,
+            first.effective_version,
+        )
+    finally:
+        with connect(database_url) as connection:
+            connection.execute(
+                "DELETE FROM evodev_prompt_evolution_jobs WHERE id = ANY(%s)",
+                (job_ids,),
+            )
+            connection.execute(
+                "DELETE FROM evodev_prompt_versions WHERE id = ANY(%s)",
+                (version_ids,),
+            )
+            connection.commit()

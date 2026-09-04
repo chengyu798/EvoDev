@@ -1,6 +1,6 @@
 # Agent 系统提示词
 
-本目录单独保存四类 Agent 的系统提示词。每个模板必须保留以下占位符：
+本目录单独保存修复 Agent 和 Prompt Optimizer 的系统提示词。每个模板必须保留以下占位符：
 
 - `{{PROMPT_VERSION}}`：运行时替换为 Agent 配置中的提示词版本。
 - `{{OUTPUT_SCHEMA}}`：运行时替换为当前结构化输出的 JSON Schema。

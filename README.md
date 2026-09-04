@@ -4,7 +4,9 @@
 
 EvoDev 是一个基于 LangGraph 的多智能体软件修复系统。系统接收本地 Python 仓库、
 问题描述和测试命令，在隔离工作区中完成分析、修改、测试和审查，并保留可复查的代码
-补丁、测试证据和运行轨迹。
+补丁、测试证据和运行轨迹。失败任务会生成结构化经验，供后续相似任务检索复用。
+经验的真实效果会改变后续排序；独立 Worker 还能生成候选 Prompt，通过真实 A/B 评测后
+自动升级或拒绝。
 
 ## 目录导航
 
@@ -35,6 +37,8 @@ EvoDev 是一个基于 LangGraph 的多智能体软件修复系统。系统接�
 - [系统架构设计](docs/02-系统架构设计.md)
 - [多智能体闭环说明](docs/03-多智能体闭环说明.md)
 - [手动测试指南](docs/04-手动测试指南.md)
+- [经验进化说明](docs/05-经验进化说明.md)
+- [自进化机制说明](docs/06-自进化机制说明.md)
 
 ## 本地启动
 
@@ -54,6 +58,14 @@ uv run evodev serve
 执行多智能体修复任务前，需要在 `.env` 中填写模型配置。完整参数和产物说明见
 [多智能体闭环说明](docs/03-多智能体闭环说明.md)，端到端验证方法见
 [手动测试指南](docs/04-手动测试指南.md)。
+
+Prompt 进化使用独立进程，不阻塞修复任务：
+
+```bash
+uv run evodev evolve-prompt --agent developer --min-experiences 1
+uv run evodev evolution-worker --once
+uv run evodev prompt-versions --agent developer
+```
 
 启动前端：
 
