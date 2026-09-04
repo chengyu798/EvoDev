@@ -14,7 +14,7 @@ from evodev.config import get_settings
 from evodev.domain.tasks import TaskCreate, TaskRead
 from evodev.observability.logging import configure_logging
 from evodev.persistence.artifacts import LocalArtifactStore
-from evodev.persistence.checkpoints import SqliteCheckpointStore
+from evodev.persistence.checkpoints import PostgresCheckpointStore
 from evodev.runtime.sandbox import docker_is_available
 from evodev.runtime.workspace import WorkspaceManager
 from evodev.workflows.compiler import build_bug_fix_graph
@@ -27,6 +27,7 @@ def doctor() -> None:
     """检查本地依赖，不修改系统状态。"""
     settings = get_settings()
     settings.ensure_directories()
+    checkpoint_store = PostgresCheckpointStore(settings.database_url)
     report = {
         "environment": settings.environment,
         "docker_available": docker_is_available(),
@@ -37,7 +38,8 @@ def doctor() -> None:
         "sandbox_pids_limit": settings.sandbox_pids_limit,
         "command_timeout_seconds": settings.command_timeout_seconds,
         "max_command_output_bytes": settings.max_command_output_bytes,
-        "database_url": settings.database_url,
+        "database_backend": "postgresql",
+        "database_available": checkpoint_store.is_available(),
         "outputs_dir": str(settings.outputs_dir.resolve()),
         "workspaces_dir": str(settings.workspaces_dir.resolve()),
         "llm_model_configured": bool(settings.llm_model),
@@ -163,7 +165,7 @@ def cleanup_demo(
     result = DemoCleanupService(
         WorkspaceManager(settings.workspaces_dir),
         LocalArtifactStore(settings.outputs_dir),
-        SqliteCheckpointStore(settings.database_url),
+        PostgresCheckpointStore(settings.database_url),
         settings.sandbox_image,
     ).execute(
         run_id=run_id,

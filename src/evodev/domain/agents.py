@@ -7,6 +7,7 @@ class AgentDefinition(BaseModel):
     id: str
     name: str
     role: str
+    prompt_file: str
     prompt_version: str = "1"
     model: str
     temperature: float = Field(default=0.0, ge=0.0, le=2.0)

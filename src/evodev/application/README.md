@@ -7,7 +7,7 @@
 测试、应用受控补丁、运行修复后测试，并返回变更文件和完整 Patch。工作区会被保留，
 便于失败诊断和人工复查。
 
-`RepairWorkflowService` 组装四类 Agent、LangGraph 节点和 SQLite Checkpointer，执行
+`RepairWorkflowService` 组装四类 Agent、LangGraph 节点和 PostgreSQL Checkpointer，执行
 完整的“分析—修改—测试—失败诊断—审查—生成补丁”闭环。模型或基础设施异常会转换为
 包含错误编码和原因的失败状态。
 

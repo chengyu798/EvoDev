@@ -1,17 +1,33 @@
 """验证手动测试环境只能按安全范围清理。"""
 
 from pathlib import Path
+from typing import Never
 
 import pytest
 
 from evodev.application.cleanup import DemoCleanupService, UnsafeCleanupTargetError
 from evodev.persistence.artifacts import LocalArtifactStore
-from evodev.persistence.checkpoints import SqliteCheckpointStore
 from evodev.runtime.workspace import WorkspaceManager
 
 
-def build_service(tmp_path: Path) -> tuple[DemoCleanupService, SqliteCheckpointStore]:
-    checkpoint_store = SqliteCheckpointStore(f"sqlite:///{tmp_path / 'evodev.db'}")
+class RecordingCheckpointStore:
+    """记录测试中的检查点线程，不连接外部 PostgreSQL。"""
+
+    def __init__(self) -> None:
+        self.thread_ids: set[str] = set()
+
+    def open(self) -> Never:
+        raise AssertionError("清理测试不应直接打开 Checkpointer")
+
+    def delete_thread(self, thread_id: str) -> bool:
+        if thread_id not in self.thread_ids:
+            return False
+        self.thread_ids.remove(thread_id)
+        return True
+
+
+def build_service(tmp_path: Path) -> tuple[DemoCleanupService, RecordingCheckpointStore]:
+    checkpoint_store = RecordingCheckpointStore()
     service = DemoCleanupService(
         WorkspaceManager(tmp_path / "workspaces"),
         LocalArtifactStore(tmp_path / "outputs"),
@@ -21,18 +37,8 @@ def build_service(tmp_path: Path) -> tuple[DemoCleanupService, SqliteCheckpointS
     return service, checkpoint_store
 
 
-def add_checkpoint(store: SqliteCheckpointStore, run_id: str) -> None:
-    with store.open() as saver:
-        saver.setup()
-        saver.conn.execute(
-            """
-            INSERT INTO checkpoints (
-                thread_id, checkpoint_ns, checkpoint_id, type, checkpoint, metadata
-            ) VALUES (?, '', 'checkpoint-1', 'json', ?, ?)
-            """,
-            (run_id, b"{}", b"{}"),
-        )
-        saver.conn.commit()
+def add_checkpoint(store: RecordingCheckpointStore, run_id: str) -> None:
+    store.thread_ids.add(run_id)
 
 
 def test_cleanup_removes_only_selected_demo_resources(tmp_path: Path) -> None:

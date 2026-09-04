@@ -1,4 +1,4 @@
-"""组装并执行带 SQLite 检查点的多智能体修复工作流。"""
+"""组装并执行带 PostgreSQL 检查点的多智能体修复工作流。"""
 
 from pathlib import Path
 from typing import cast
@@ -12,7 +12,10 @@ from evodev.config import Settings
 from evodev.domain.enums import TaskRunStatus
 from evodev.domain.tasks import TaskRead
 from evodev.persistence.artifacts import LocalArtifactStore
-from evodev.persistence.checkpoints import SqliteCheckpointStore
+from evodev.persistence.checkpoints import (
+    CheckpointStoreProtocol,
+    PostgresCheckpointStore,
+)
 from evodev.runtime.sandbox import DockerCommandRunner, DockerSandboxConfig
 from evodev.runtime.testing import PytestRunner
 from evodev.runtime.workspace import WorkspaceManager
@@ -34,7 +37,7 @@ class RepairWorkflowService:
     def __init__(
         self,
         nodes: RepairWorkflowNodes,
-        checkpoint_store: SqliteCheckpointStore,
+        checkpoint_store: CheckpointStoreProtocol,
     ) -> None:
         self.nodes = nodes
         self.checkpoint_store = checkpoint_store
@@ -117,5 +120,5 @@ def build_repair_workflow_service(settings: Settings) -> RepairWorkflowService:
     )
     return RepairWorkflowService(
         RepairWorkflowNodes(dependencies),
-        SqliteCheckpointStore(settings.database_url),
+        PostgresCheckpointStore(settings.database_url),
     )

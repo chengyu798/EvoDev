@@ -8,6 +8,7 @@ from typing import Any, TypeVar
 from pydantic import BaseModel, ValidationError
 
 from evodev.agents.client import ModelClientProtocol
+from evodev.agents.prompting import PromptRepository
 from evodev.agents.tools import AgentToolbox
 from evodev.domain.agents import AgentDefinition
 
@@ -34,9 +35,15 @@ class AgentInvocation:
 class AgentExecutor:
     """循环处理模型工具请求，直到模型返回结构化结果。"""
 
-    def __init__(self, client: ModelClientProtocol, toolbox: AgentToolbox) -> None:
+    def __init__(
+        self,
+        client: ModelClientProtocol,
+        toolbox: AgentToolbox,
+        prompt_repository: PromptRepository | None = None,
+    ) -> None:
         self.client = client
         self.toolbox = toolbox
+        self.prompt_repository = prompt_repository or PromptRepository()
 
     def invoke(
         self,
@@ -49,7 +56,7 @@ class AgentExecutor:
         messages: list[dict[str, Any]] = [
             {
                 "role": "system",
-                "content": self._system_prompt(agent, output_schema),
+                "content": self.prompt_repository.render(agent, output_schema),
             },
             {
                 "role": "user",
@@ -130,17 +137,6 @@ class AgentExecutor:
                     }
                 )
         raise AgentExecutionError("Agent 未在限制内返回最终结果")
-
-    @staticmethod
-    def _system_prompt(agent: AgentDefinition, output_schema: type[BaseModel]) -> str:
-        schema = json.dumps(output_schema.model_json_schema(), ensure_ascii=False)
-        return (
-            f"你是 EvoDev 的{agent.name}。{agent.role}\n"
-            "只能使用已授权工具，不得访问工作区以外的文件。"
-            "如果工具返回执行失败，必须根据错误信息修正参数后重试。"
-            "完成任务后必须返回符合给定 JSON Schema 的 JSON，不要添加 Markdown。\n"
-            f"Prompt 版本：{agent.prompt_version}\nJSON Schema：{schema}"
-        )
 
     @staticmethod
     def _validate_output(content: str | None, schema: type[OutputT]) -> OutputT:

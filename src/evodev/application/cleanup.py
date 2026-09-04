@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from evodev.persistence.artifacts import LocalArtifactStore
-from evodev.persistence.checkpoints import SqliteCheckpointStore
+from evodev.persistence.checkpoints import CheckpointStoreProtocol
 from evodev.runtime.sandbox import docker_image_is_available
 from evodev.runtime.workspace import RUN_ID_PATTERN, WorkspaceManager
 
@@ -39,7 +39,7 @@ class DemoCleanupService:
         self,
         workspace_manager: WorkspaceManager,
         output_store: LocalArtifactStore,
-        checkpoint_store: SqliteCheckpointStore,
+        checkpoint_store: CheckpointStoreProtocol,
         sandbox_image: str,
     ) -> None:
         self.workspace_manager = workspace_manager

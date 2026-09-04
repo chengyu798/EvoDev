@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     )
 
     environment: str = "development"
-    database_url: str = "sqlite:///./data/evodev.db"
+    database_url: str = "postgresql://evodev:evodev@localhost:55432/evodev"
     outputs_dir: Path = Path("outputs")
     workspaces_dir: Path = Path(".evodev/workspaces")
     sandbox_image: str = "evodev-python:3.13"

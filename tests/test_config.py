@@ -9,6 +9,8 @@ def test_default_output_directory_uses_clear_name() -> None:
     settings = Settings(_env_file=None)
 
     assert settings.outputs_dir == Path("outputs")
+    assert settings.database_url.startswith("postgresql://")
+    assert settings.database_url.endswith(":55432/evodev")
     assert "artifacts_dir" not in Settings.model_fields
 
 

@@ -1,8 +1,9 @@
 # 手动测试截图
 
-本目录保存 `docs/03-多智能体闭环说明.md` 使用的真实终端截图。
+本目录保存 `docs/04-手动测试指南.md` 使用的真实终端截图。
 
-- `01-sync.png` 至 `10-regression-tests.png`：环境准备、真实模型修复、运行证据检查和项目回归测试。
+- `00-postgres.png`：启动 PostgreSQL 并确认容器健康状态。
+- `01-sync.png` 至 `10-regression-tests.png`：依赖与沙箱准备、真实模型修复、运行证据检查和项目回归测试。
 - `11-cleanup.png`：删除本次测试生成的临时资源。
 - `12-cleanup-verify.png`：确认临时仓库、运行输出、工作区、检查点和 Docker 镜像均已删除。
 

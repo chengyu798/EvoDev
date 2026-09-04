@@ -26,7 +26,7 @@ EvoDev 是一个基于 LangGraph 的多智能体软件修复系统。系统接�
 | `frontend/` | React 前端应用和组件测试 |
 | `sandbox/` | Python 代码执行沙箱镜像 |
 | `outputs/` | 按运行编号保存补丁、日志、测试报告和 Agent 轨迹 |
-| `data/` | 本地数据库和工作流检查点 |
+| `data/` | 预留的本地业务数据目录；工作流检查点保存在 PostgreSQL |
 
 ## 关键文档
 
@@ -34,6 +34,7 @@ EvoDev 是一个基于 LangGraph 的多智能体软件修复系统。系统接�
 - [一周开发任务清单](docs/01-一周开发任务清单.md)
 - [系统架构设计](docs/02-系统架构设计.md)
 - [多智能体闭环说明](docs/03-多智能体闭环说明.md)
+- [手动测试指南](docs/04-手动测试指南.md)
 
 ## 本地启动
 
@@ -42,6 +43,7 @@ EvoDev 是一个基于 LangGraph 的多智能体软件修复系统。系统接�
 ```bash
 uv sync --dev
 cp .env.example .env
+docker compose up -d --wait postgres
 uv run evodev doctor
 uv run evodev serve
 ```
@@ -50,7 +52,8 @@ uv run evodev serve
 `http://127.0.0.1:8000/api/health`。
 
 执行多智能体修复任务前，需要在 `.env` 中填写模型配置。完整参数和产物说明见
-[多智能体闭环说明](docs/03-多智能体闭环说明.md)。
+[多智能体闭环说明](docs/03-多智能体闭环说明.md)，端到端验证方法见
+[手动测试指南](docs/04-手动测试指南.md)。
 
 启动前端：
 

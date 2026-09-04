@@ -7,6 +7,7 @@ import pytest
 
 from evodev.agents.client import ModelReply, ToolCall
 from evodev.agents.executor import AgentExecutionError, AgentExecutor
+from evodev.agents.prompting import PromptRepository, PromptTemplateError
 from evodev.agents.schemas import IssueAnalysis
 from evodev.agents.tools import AgentToolbox
 from evodev.domain.agents import AgentDefinition
@@ -32,6 +33,7 @@ def analyst_definition(*, max_tool_calls: int = 2) -> AgentDefinition:
         id="analyst@1",
         name="问题分析智能体",
         role="分析问题并给出修改计划。",
+        prompt_file="analyst.md",
         model="test-model",
         allowed_tools=["list_files"],
         output_schema="IssueAnalysis",
@@ -87,6 +89,9 @@ def test_agent_executes_allowed_tool_then_returns_structured_result(tmp_path: Pa
     assert invocation.prompt_tokens == 7
     assert invocation.completion_tokens == 7
     assert client.messages[1][-1]["role"] == "tool"
+    assert "问题分析智能体" in client.messages[0][0]["content"]
+    assert "Prompt 版本：1" in client.messages[0][0]["content"]
+    assert "JSON Schema" in client.messages[0][0]["content"]
 
 
 def test_agent_rejects_invalid_structured_output(tmp_path: Path) -> None:
@@ -100,6 +105,30 @@ def test_agent_rejects_invalid_structured_output(tmp_path: Path) -> None:
             task={"issue_title": "修复加法"},
             output_schema=IssueAnalysis,
         )
+
+
+def test_all_agent_prompts_are_loaded_from_independent_files() -> None:
+    from evodev.agents.catalog import default_agent_catalog
+
+    repository = PromptRepository()
+    prompts = {
+        name: repository.render(agent, IssueAnalysis)
+        for name, agent in default_agent_catalog("test-model").items()
+    }
+
+    assert len(set(prompts.values())) == 4
+    assert "只负责分析" in prompts["analyst"]
+    assert "必须使用 apply_patch" in prompts["developer"]
+    assert "是否适合自动重试" in prompts["failure_analyzer"]
+    assert "判断补丁是否可以通过审查" in prompts["reviewer"]
+
+
+def test_agent_rejects_unsafe_prompt_file_name() -> None:
+    agent = analyst_definition()
+    agent.prompt_file = "../secret.md"
+
+    with pytest.raises(PromptTemplateError, match="文件名不合法"):
+        PromptRepository().render(agent, IssueAnalysis)
 
 
 def test_agent_stops_at_tool_call_limit(tmp_path: Path) -> None:

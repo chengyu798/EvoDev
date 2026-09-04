@@ -1,9 +1,12 @@
-"""验证多智能体修复闭环和 SQLite 检查点。"""
+"""验证多智能体修复闭环和检查点。"""
 
-import sqlite3
 import subprocess
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from uuid import uuid4
+
+from langgraph.checkpoint.memory import InMemorySaver
 
 from evodev.agents.executor import AgentInvocation
 from evodev.agents.schemas import (
@@ -16,7 +19,6 @@ from evodev.application.repair import RepairWorkflowService
 from evodev.domain.enums import TaskRunStatus
 from evodev.domain.tasks import TaskRead
 from evodev.persistence.artifacts import LocalArtifactStore
-from evodev.persistence.checkpoints import SqliteCheckpointStore
 from evodev.runtime.command import CommandResult
 from evodev.runtime.testing import TestExecutionResult as PytestExecutionResult
 from evodev.runtime.workspace import WorkspaceManager
@@ -48,6 +50,27 @@ class ScriptedTestRunner:
             duration_ms=10,
         )
         return PytestExecutionResult(**result.model_dump(), kind=kind, passed=passed)
+
+
+class MemoryCheckpointStore:
+    """使用 LangGraph 内存实现验证工作流，不依赖外部数据库。"""
+
+    def __init__(self) -> None:
+        self.saver = InMemorySaver()
+
+    @contextmanager
+    def open(self) -> Iterator[InMemorySaver]:
+        yield self.saver
+
+    def delete_thread(self, thread_id: str) -> bool:
+        config = {"configurable": {"thread_id": thread_id}}
+        existed = next(self.saver.list(config, limit=1), None) is not None
+        self.saver.delete_thread(thread_id)
+        return existed
+
+    def count(self, thread_id: str) -> int:
+        config = {"configurable": {"thread_id": thread_id}}
+        return sum(1 for _ in self.saver.list(config))
 
 
 class ScriptedRepairAgents:
@@ -147,8 +170,8 @@ def build_service(
     tmp_path: Path,
     test_runner: ScriptedTestRunner,
     agents: ScriptedRepairAgents,
-) -> tuple[RepairWorkflowService, Path]:
-    database_path = tmp_path / "evodev.db"
+) -> tuple[RepairWorkflowService, MemoryCheckpointStore]:
+    checkpoint_store = MemoryCheckpointStore()
     dependencies = WorkflowNodeDependencies(
         workspace_manager=WorkspaceManager(tmp_path / "workspaces"),
         pytest_runner=test_runner,  # type: ignore[arg-type]
@@ -159,15 +182,15 @@ def build_service(
     )
     service = RepairWorkflowService(
         RepairWorkflowNodes(dependencies),
-        SqliteCheckpointStore(f"sqlite:///{database_path}"),
+        checkpoint_store,
     )
-    return service, database_path
+    return service, checkpoint_store
 
 
 def test_repair_workflow_retries_then_saves_patch_and_checkpoint(tmp_path: Path) -> None:
     repository = create_source_repository(tmp_path)
     agents = ScriptedRepairAgents()
-    service, database_path = build_service(
+    service, checkpoint_store = build_service(
         tmp_path,
         ScriptedTestRunner([False, True]),
         agents,
@@ -197,9 +220,7 @@ def test_repair_workflow_retries_then_saves_patch_and_checkpoint(tmp_path: Path)
     assert agents.implement_count == 2
     assert agents.diagnose_count == 1
 
-    with sqlite3.connect(database_path) as connection:
-        checkpoint_count = connection.execute("SELECT COUNT(*) FROM checkpoints").fetchone()[0]
-    assert checkpoint_count > 0
+    assert checkpoint_store.count(run_id) > 0
 
 
 def test_repair_workflow_stops_after_three_failed_attempts(tmp_path: Path) -> None:
