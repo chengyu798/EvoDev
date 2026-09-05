@@ -1,6 +1,7 @@
 """组装并执行带 PostgreSQL 检查点的多智能体修复工作流。"""
 
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
@@ -45,14 +46,33 @@ class RepairWorkflowService:
         checkpoint_store: CheckpointStoreProtocol,
         prompt_evolution_store: PostgresPromptEvolutionStore | None = None,
         prompt_evolution_min_experiences: int = 3,
+        agent_executor: AgentExecutor | None = None,
     ) -> None:
         self.nodes = nodes
         self.checkpoint_store = checkpoint_store
+        self.agent_executor = agent_executor
         self.prompt_evolution_store = prompt_evolution_store
         self.prompt_evolution_min_experiences = prompt_evolution_min_experiences
 
-    def execute(self, *, run_id: str, task: TaskRead) -> EvoDevState:
+    def execute(
+        self,
+        *,
+        run_id: str,
+        task: TaskRead,
+        progress_callback: Callable[[str, dict[str, object]], None] | None = None,
+    ) -> EvoDevState:
         started_at = time.perf_counter()
+        if self.agent_executor is not None:
+            self.agent_executor.event_callback = (
+                (
+                    lambda event_type, payload: progress_callback(
+                        "__agent_event__",
+                        {"event_type": event_type, **payload},
+                    )
+                )
+                if progress_callback is not None
+                else None
+            )
         initial_state: EvoDevState = {
             "run_id": run_id,
             "task_id": str(task.id),
@@ -62,6 +82,11 @@ class RepairWorkflowService:
             "issue_body": task.issue_body,
             "test_command": task.test_command,
             "constraints": task.constraints,
+            "confirmed_plan": (
+                task.confirmed_plan.model_dump(mode="json")
+                if task.confirmed_plan is not None
+                else None
+            ),
             "max_iterations": task.max_iterations,
             "changed_files": [],
             "retrieved_experience_ids": [],
@@ -72,53 +97,71 @@ class RepairWorkflowService:
             "agent_versions": {},
             "workflow_version": BUG_FIX_V1.version_id,
         }
-        config = {"configurable": {"thread_id": run_id}}
-        with self.checkpoint_store.open() as checkpointer:
-            graph = build_bug_fix_graph(
-                checkpointer=checkpointer,
-                node_registry=self.nodes.registry(),
-            )
-            try:
-                result = graph.invoke(initial_state, config=config)
-            except Exception as exc:
-                # 将基础设施或模型异常转为可查询的失败状态。
-                graph.update_state(
-                    config,
-                    {
-                        "status": TaskRunStatus.FAILED.value,
-                        "error_code": "WORKFLOW_EXECUTION_FAILED",
-                        "error_message": str(exc),
-                    },
+        # 每次修复运行拥有独立检查点；业务会话上下文单独存储在任务消息中。
+        config = {
+            "configurable": {
+                "thread_id": run_id,
+            }
+        }
+        try:
+            with self.checkpoint_store.open() as checkpointer:
+                graph = build_bug_fix_graph(
+                    checkpointer=checkpointer,
+                    node_registry=self.nodes.registry(),
                 )
-                result = graph.get_state(config).values
-            feedback_update = self.nodes.finalize_experience_feedback(
-                cast(EvoDevState, result)
-            )
-            graph.update_state(config, feedback_update)
-            result = graph.get_state(config).values
-            if (
-                feedback_update["experience_feedback_count"]
-                and feedback_update["experience_feedback"] != "ignored"
-                and self.prompt_evolution_store is not None
-            ):
-                job = self.prompt_evolution_store.enqueue_if_absent(
-                    agent_role="developer",
-                    min_experiences=self.prompt_evolution_min_experiences,
-                )
-                if job is not None:
+                try:
+                    updates = graph.stream(
+                        initial_state,
+                        config=config,
+                        stream_mode="updates",
+                    )
+                    for update in updates:
+                        if progress_callback is None:
+                            continue
+                        for node_name, node_update in update.items():
+                            if isinstance(node_update, dict):
+                                progress_callback(node_name, node_update)
+                    result = graph.get_state(config).values
+                except Exception as exc:
+                    # 将基础设施或模型异常转为可查询的失败状态。
                     graph.update_state(
                         config,
-                        {"prompt_evolution_job_id": str(job.id)},
+                        {
+                            "status": TaskRunStatus.FAILED.value,
+                            "error_code": "WORKFLOW_EXECUTION_FAILED",
+                            "error_message": str(exc),
+                        },
                     )
                     result = graph.get_state(config).values
-            metrics_update = self.nodes.record_run_metrics(
-                cast(EvoDevState, result),
-                duration_ms=int((time.perf_counter() - started_at) * 1000),
-                workflow_version=BUG_FIX_V1.version_id,
-            )
-            graph.update_state(config, metrics_update)
-            result = graph.get_state(config).values
-        return cast(EvoDevState, result)
+                feedback_update = self.nodes.finalize_experience_feedback(cast(EvoDevState, result))
+                graph.update_state(config, feedback_update)
+                result = graph.get_state(config).values
+                if (
+                    feedback_update["experience_feedback_count"]
+                    and feedback_update["experience_feedback"] != "ignored"
+                    and self.prompt_evolution_store is not None
+                ):
+                    job = self.prompt_evolution_store.enqueue_if_absent(
+                        agent_role="developer",
+                        min_experiences=self.prompt_evolution_min_experiences,
+                    )
+                    if job is not None:
+                        graph.update_state(
+                            config,
+                            {"prompt_evolution_job_id": str(job.id)},
+                        )
+                        result = graph.get_state(config).values
+                metrics_update = self.nodes.record_run_metrics(
+                    cast(EvoDevState, result),
+                    duration_ms=int((time.perf_counter() - started_at) * 1000),
+                    workflow_version=BUG_FIX_V1.version_id,
+                )
+                graph.update_state(config, metrics_update)
+                result = graph.get_state(config).values
+            return cast(EvoDevState, result)
+        finally:
+            if self.agent_executor is not None:
+                self.agent_executor.event_callback = None
 
 
 def build_repair_workflow_service(
@@ -151,15 +194,14 @@ def build_repair_workflow_service(
         api_key=settings.llm_api_key,
         base_url=settings.llm_base_url,
     )
+    agent_executor = AgentExecutor(
+        client,
+        toolbox,
+        prompt_repository
+        or PromptRepository(guidance_provider=PostgresPromptEvolutionStore(settings.database_url)),
+    )
     agents = RepairAgentCoordinator(
-        AgentExecutor(
-            client,
-            toolbox,
-            prompt_repository
-            or PromptRepository(
-                guidance_provider=PostgresPromptEvolutionStore(settings.database_url)
-            ),
-        ),
+        agent_executor,
         default_agent_catalog(settings.llm_model),
     )
     dependencies = WorkflowNodeDependencies(
@@ -170,6 +212,9 @@ def build_repair_workflow_service(
         artifact_store=LocalArtifactStore(Path(settings.outputs_dir)),
         experience_store=experience_store or PostgresExperienceStore(settings.database_url),
         agents=agents,
+        llm_input_price_per_million=settings.llm_input_price_per_million,
+        llm_output_price_per_million=settings.llm_output_price_per_million,
+        llm_cost_currency=settings.llm_cost_currency,
     )
     return RepairWorkflowService(
         RepairWorkflowNodes(dependencies),
@@ -178,4 +223,5 @@ def build_repair_workflow_service(
         if settings.prompt_evolution_auto_enqueue
         else None,
         settings.prompt_evolution_min_experiences,
+        agent_executor,
     )

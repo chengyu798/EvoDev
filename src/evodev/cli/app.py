@@ -249,9 +249,7 @@ def evolution_worker(
             time.sleep(5)
             continue
         job, version = result
-        evaluation_reason = (
-            (version.evaluation or {}).get("reason", "无") if version else "无"
-        )
+        evaluation_reason = (version.evaluation or {}).get("reason", "无") if version else "无"
         typer.echo(
             "\n".join(
                 [
@@ -272,9 +270,7 @@ def prompt_versions(
     agent: Annotated[str, typer.Option(help="需要查询的 Agent")],
 ) -> None:
     """查看 Prompt 指导层的历史版本和状态。"""
-    versions = PostgresPromptEvolutionStore(
-        get_settings().database_url
-    ).list_versions(agent)
+    versions = PostgresPromptEvolutionStore(get_settings().database_url).list_versions(agent)
     if not versions:
         typer.echo("当前 Agent 尚无进化 Prompt 版本")
         return

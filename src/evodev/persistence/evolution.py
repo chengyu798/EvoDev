@@ -246,14 +246,10 @@ class PostgresPromptEvolutionStore:
         """保存 A/B 结果，并原子激活或拒绝候选版本。"""
         self.setup()
         version_status = (
-            PromptVersionStatus.ACTIVE
-            if comparison.promoted
-            else PromptVersionStatus.REJECTED
+            PromptVersionStatus.ACTIVE if comparison.promoted else PromptVersionStatus.REJECTED
         )
         job_status = (
-            EvolutionJobStatus.SUCCEEDED
-            if comparison.promoted
-            else EvolutionJobStatus.REJECTED
+            EvolutionJobStatus.SUCCEEDED if comparison.promoted else EvolutionJobStatus.REJECTED
         )
         with connect(self.database_url, row_factory=dict_row) as connection:
             candidate = connection.execute(

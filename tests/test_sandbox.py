@@ -72,9 +72,7 @@ def test_run_as_non_root_without_external_network(tmp_path: Path) -> None:
 
 @sandbox_required
 def test_force_remove_container_after_timeout(tmp_path: Path) -> None:
-    runner = DockerCommandRunner(
-        DockerSandboxConfig(image=SANDBOX_IMAGE, timeout_seconds=0.2)
-    )
+    runner = DockerCommandRunner(DockerSandboxConfig(image=SANDBOX_IMAGE, timeout_seconds=0.2))
 
     result = runner.run(tmp_path, ["python", "-c", "import time; time.sleep(10)"])
 
@@ -85,9 +83,7 @@ def test_force_remove_container_after_timeout(tmp_path: Path) -> None:
 
 @sandbox_required
 def test_truncate_combined_command_output(tmp_path: Path) -> None:
-    runner = DockerCommandRunner(
-        DockerSandboxConfig(image=SANDBOX_IMAGE, max_output_bytes=64)
-    )
+    runner = DockerCommandRunner(DockerSandboxConfig(image=SANDBOX_IMAGE, max_output_bytes=64))
 
     result = runner.run(
         tmp_path,

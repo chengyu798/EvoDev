@@ -11,13 +11,62 @@ from psycopg import connect
 from evodev.agents.schemas import PromptOptimization
 from evodev.domain.evolution import PromptEvaluationComparison, PromptVersionStatus
 from evodev.domain.experiences import Experience, ExperienceOutcome, ExperienceStatus
+from evodev.domain.runs import RunEvent, TaskRunRead
+from evodev.domain.tasks import TaskRead
 from evodev.persistence.checkpoints import PostgresCheckpointStore
 from evodev.persistence.evolution import PostgresPromptEvolutionStore
 from evodev.persistence.experiences import PostgresExperienceStore
+from evodev.persistence.tasks import (
+    PostgresRunStore,
+    PostgresTaskRunStore,
+    PostgresTaskStore,
+)
 
 
 class CounterState(TypedDict):
     value: int
+
+
+@pytest.mark.skipif(
+    not os.getenv("EVODEV_TEST_DATABASE_URL"),
+    reason="未配置 PostgreSQL 集成测试数据库",
+)
+def test_postgres_task_run_store_persists_summary_and_events(tmp_path) -> None:
+    database_url = os.environ["EVODEV_TEST_DATABASE_URL"]
+    shared_store = PostgresTaskRunStore(database_url)
+    task_store = PostgresTaskStore(shared_store)
+    run_store = PostgresRunStore(shared_store)
+    task = TaskRead(
+        repository_path=tmp_path,
+        issue_title="持久化任务",
+        issue_body="验证任务和运行记录。",
+        test_command="pytest -q",
+        constraints=[],
+        max_iterations=3,
+    )
+    run = TaskRunRead(task_id=task.id)
+
+    try:
+        task_store.save(task)
+        run_store.save(run, {"status": "created"})
+        run_store.add_event(
+            RunEvent(
+                run_id=run.id,
+                event_type="run.created",
+                payload={"status": "created"},
+            )
+        )
+
+        assert task_store.get(task.id) == task
+        assert run_store.get(run.id) == run
+        assert run_store.get_result(run.id) == {"status": "created"}
+        assert run_store.events(run.id)[0].event_type == "run.created"
+    finally:
+        with connect(database_url) as connection:
+            connection.execute("DELETE FROM evodev_run_events WHERE run_id = %s", (run.id,))
+            connection.execute("DELETE FROM evodev_task_runs WHERE id = %s", (run.id,))
+            connection.execute("DELETE FROM evodev_tasks WHERE id = %s", (task.id,))
+            connection.commit()
 
 
 @pytest.mark.skipif(

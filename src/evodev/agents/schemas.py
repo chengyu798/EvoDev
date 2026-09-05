@@ -1,5 +1,7 @@
 """定义各智能体必须返回的结构化结果。"""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -38,6 +40,14 @@ class ReviewResult(BaseModel):
     requirement_coverage: list[str] = Field(default_factory=list)
     risks: list[str] = Field(default_factory=list)
     required_changes: list[str] = Field(default_factory=list)
+
+
+class ConversationReply(BaseModel):
+    """只读对话智能体对用户意图和问题的回答。"""
+
+    intent: Literal["explain", "modify", "clarify"]
+    response: str = Field(min_length=1, max_length=10_000)
+    explicit_action: bool = False
 
 
 class PromptOptimization(BaseModel):

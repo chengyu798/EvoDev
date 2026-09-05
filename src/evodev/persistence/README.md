@@ -7,3 +7,4 @@
 - `checkpoints.py`：管理 LangGraph 官方 PostgreSQL Checkpointer，并校验数据库连接地址。
 - `experiences.py`：保存结构化 Experience，按标签检索并幂等记录使用次数。
 - `evolution.py`：管理 Prompt 进化任务队列、候选版本、激活状态和回滚。
+- `tasks.py`：保存任务、运行摘要和节点事件，并提供测试使用的内存实现。

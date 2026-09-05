@@ -43,11 +43,7 @@ class PackagePromptSource:
 
     def read(self, prompt_file: str) -> str:
         try:
-            return (
-                files("evodev.agents.prompts")
-                .joinpath(prompt_file)
-                .read_text(encoding="utf-8")
-            )
+            return files("evodev.agents.prompts").joinpath(prompt_file).read_text(encoding="utf-8")
         except (FileNotFoundError, ModuleNotFoundError) as exc:
             raise PromptTemplateError(f"找不到 Agent 提示词文件：{prompt_file}") from exc
 

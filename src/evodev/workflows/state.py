@@ -13,6 +13,7 @@ class EvoDevState(TypedDict):
     issue_body: str
     test_command: str
     constraints: NotRequired[list[str]]
+    confirmed_plan: NotRequired[dict[str, object] | None]
     max_iterations: int
 
     workspace_path: NotRequired[str | None]
@@ -48,5 +49,6 @@ class EvoDevState(TypedDict):
     completion_tokens: NotRequired[int]
     retry_count: NotRequired[int]
     duration_ms: NotRequired[int]
+    cost_estimate: NotRequired[dict[str, object]]
     error_code: NotRequired[str | None]
     error_message: NotRequired[str | None]

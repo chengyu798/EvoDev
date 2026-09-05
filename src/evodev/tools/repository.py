@@ -24,9 +24,7 @@ class RepositoryTools:
         for current_directory, directories, filenames in os.walk(root, followlinks=False):
             current = Path(current_directory)
             directories[:] = sorted(
-                name
-                for name in directories
-                if name != ".git" and not (current / name).is_symlink()
+                name for name in directories if name != ".git" and not (current / name).is_symlink()
             )
             for filename in sorted(filenames):
                 path = current / filename

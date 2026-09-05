@@ -42,9 +42,7 @@ def test_checkpoint_store_runs_setup_before_use(monkeypatch: pytest.MonkeyPatch)
 
     monkeypatch.setattr("evodev.persistence.checkpoints.connect", fake_connection)
     monkeypatch.setattr("evodev.persistence.checkpoints.PostgresSaver", FakeSaver)
-    store = PostgresCheckpointStore(
-        "postgresql://evodev:evodev@localhost:55432/evodev"
-    )
+    store = PostgresCheckpointStore("postgresql://evodev:evodev@localhost:55432/evodev")
 
     with store.open():
         events.append("use")
@@ -59,8 +57,6 @@ def test_checkpoint_availability_returns_false_when_connection_fails(
         raise OSError("数据库不可达")
 
     monkeypatch.setattr("evodev.persistence.checkpoints.connect", fail_connection)
-    store = PostgresCheckpointStore(
-        "postgresql://evodev:evodev@localhost:55432/evodev"
-    )
+    store = PostgresCheckpointStore("postgresql://evodev:evodev@localhost:55432/evodev")
 
     assert store.is_available() is False

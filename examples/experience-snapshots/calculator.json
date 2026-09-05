@@ -1,0 +1,31 @@
+{
+  "id": "8e0e4856-0413-4251-a4f1-8f3456f1c173",
+  "source_run_id": "64b3ad77-48eb-4fb1-b58d-bb4f01846bde",
+  "task_type": "bug_fix",
+  "tags": [
+    "ext:py",
+    "file:calculator.py",
+    "file:test_calculator.py",
+    "task:bug_fix",
+    "term:add",
+    "term:calculator",
+    "term:left",
+    "term:py",
+    "term:right"
+  ],
+  "failure_pattern": "验证运行 pytest -q 的结果为 2 passed, 1 failed。两个 add 相关用例（test_add_returns_sum、test_add_supports_negative_number）均已通过，说明 calculator.py 中 add 的修复（return left + right）已生效。唯一剩余失败是 test_calculator.py::test_fixed_failure_for_experience_demo，它是一个刻意 assert False 的演示用例，用于验证失败运行能否生成经验，与本次加法缺陷无关。",
+  "lesson": "本次修复未完成。失败诊断认为：并非代码缺陷，也非测试命令或基础设施问题。git diff 显示 calculator.py 中 add 已从 return left - right 修复为 return left + right，公开签名与文档字符串保持不变，且未改动测试文件。剩余失败完全来源于测试文件内刻意写死的 test_fixed_failure_for_experience_demo（assert False），按约束不得修改测试，因此该用例在任何情况下都会失败，属于测试内容本身的设计行为而非实现问题。",
+  "recommended_actions": [
+    "确认修复已正确落地：calculator.py 的 add 返回 left + right，两个 add 测试已通过，无需再修改实现代码。",
+    "认识到整体 pytest -q 仍会因刻意失败用例 test_fixed_failure_for_experience_demo 报告 exit_code 1，这是被允许/预期的（issue 分析与约束已说明），不应据此判定修复失败。",
+    "评判本次任务是否成功应只看 add 相关用例是否通过，或改用仅运行 add 用例的命令（如 pytest -q -k 'add'）来验证修复。",
+    "不得修改 test_calculator.py 中的演示用例，遵守‘只允许修改 calculator.py、不得修改测试’的约束。"
+  ],
+  "usage_count": 0,
+  "success_count": 0,
+  "failure_count": 0,
+  "quality_score": 0.5,
+  "status": "active",
+  "last_used_at": null,
+  "created_at": "2026-09-04T01:42:55.096219Z"
+}

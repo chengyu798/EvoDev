@@ -82,9 +82,7 @@ class DemoCleanupService:
         temp_roots = {Path(tempfile.gettempdir()).resolve(), Path("/tmp").resolve()}
         within_temp = any(resolved.is_relative_to(root) for root in temp_roots)
         if not within_temp or not resolved.name.startswith("evodev-demo."):
-            raise UnsafeCleanupTargetError(
-                "只允许删除临时目录中以 evodev-demo. 开头的示例仓库"
-            )
+            raise UnsafeCleanupTargetError("只允许删除临时目录中以 evodev-demo. 开头的示例仓库")
         if not resolved.is_dir() or not (resolved / ".git").is_dir():
             raise UnsafeCleanupTargetError("目标不是已存在的示例 Git 仓库")
         return resolved

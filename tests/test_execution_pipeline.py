@@ -31,9 +31,7 @@ def initialize_bug_repository(path: Path) -> None:
     path.mkdir()
     subprocess.run(["git", "init", "--quiet", str(path)], check=True)
     subprocess.run(["git", "-C", str(path), "config", "user.name", "测试用户"], check=True)
-    subprocess.run(
-        ["git", "-C", str(path), "config", "user.email", "test@example.com"], check=True
-    )
+    subprocess.run(["git", "-C", str(path), "config", "user.email", "test@example.com"], check=True)
     (path / "calculator.py").write_text(
         "def add(left, right):\n    return left - right\n",
         encoding="utf-8",
@@ -53,9 +51,7 @@ def initialize_bug_repository(path: Path) -> None:
 def test_deterministic_repair_pipeline(tmp_path: Path) -> None:
     source = tmp_path / "source"
     initialize_bug_repository(source)
-    pytest_runner = PytestRunner(
-        DockerCommandRunner(DockerSandboxConfig(image=SANDBOX_IMAGE))
-    )
+    pytest_runner = PytestRunner(DockerCommandRunner(DockerSandboxConfig(image=SANDBOX_IMAGE)))
     service = DeterministicRepairService(
         workspace_manager=WorkspaceManager(tmp_path / "workspaces"),
         pytest_runner=pytest_runner,
@@ -74,6 +70,4 @@ def test_deterministic_repair_pipeline(tmp_path: Path) -> None:
     assert result.changed_files == ["calculator.py"]
     assert "-    return left - right" in result.patch
     assert "+    return left + right" in result.patch
-    assert (source / "calculator.py").read_text(encoding="utf-8").endswith(
-        "return left - right\n"
-    )
+    assert (source / "calculator.py").read_text(encoding="utf-8").endswith("return left - right\n")

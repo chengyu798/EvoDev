@@ -68,8 +68,13 @@ def test_agent_executes_allowed_tool_then_returns_structured_result(tmp_path: Pa
         ]
     )
     toolbox = AgentToolbox(RepositoryTools(), EditTools(), GitTools())
+    events: list[tuple[str, dict[str, object]]] = []
 
-    invocation = AgentExecutor(client, toolbox).invoke(
+    invocation = AgentExecutor(
+        client,
+        toolbox,
+        event_callback=lambda event_type, payload: events.append((event_type, payload)),
+    ).invoke(
         agent=analyst_definition(),
         workspace=tmp_path,
         task={"issue_title": "修复加法"},
@@ -92,6 +97,12 @@ def test_agent_executes_allowed_tool_then_returns_structured_result(tmp_path: Pa
     assert "问题分析智能体" in client.messages[0][0]["content"]
     assert "Prompt 版本：1" in client.messages[0][0]["content"]
     assert "JSON Schema" in client.messages[0][0]["content"]
+    assert [event_type for event_type, _ in events] == [
+        "agent.started",
+        "tool.started",
+        "tool.completed",
+        "agent.completed",
+    ]
 
 
 def test_agent_rejects_invalid_structured_output(tmp_path: Path) -> None:
@@ -152,12 +163,13 @@ def test_all_agent_prompts_are_loaded_from_independent_files() -> None:
         for name, agent in default_agent_catalog("test-model").items()
     }
 
-    assert len(set(prompts.values())) == 5
+    assert len(set(prompts.values())) == 6
     assert "只负责分析" in prompts["analyst"]
     assert "必须使用 apply_patch" in prompts["developer"]
     assert "是否适合自动重试" in prompts["failure_analyzer"]
     assert "判断补丁是否可以通过审查" in prompts["reviewer"]
     assert "Prompt 优化智能体" in prompts["prompt_optimizer"]
+    assert "只读对话智能体" in prompts["conversation"]
 
 
 def test_prompt_repository_appends_active_evolution_guidance() -> None:
@@ -167,9 +179,9 @@ def test_prompt_repository_appends_active_evolution_guidance() -> None:
                 return "先验证历史经验是否适用于当前代码。", "1+e2"
             return None
 
-    rendered = PromptRepository(
-        guidance_provider=GuidanceProvider()
-    ).render_with_version(analyst_definition(), IssueAnalysis)
+    rendered = PromptRepository(guidance_provider=GuidanceProvider()).render_with_version(
+        analyst_definition(), IssueAnalysis
+    )
 
     assert "已通过评测的进化指导" in rendered.content
     assert "先验证历史经验" in rendered.content

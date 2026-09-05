@@ -3,6 +3,7 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,6 +34,9 @@ class Settings(BaseSettings):
     llm_model: str | None = None
     llm_api_key: str | None = None
     llm_base_url: str | None = None
+    llm_input_price_per_million: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    llm_output_price_per_million: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    llm_cost_currency: str = Field(default="CNY", pattern=r"^[A-Z]{3}$")
 
     def ensure_directories(self) -> None:
         self.outputs_dir.mkdir(parents=True, exist_ok=True)

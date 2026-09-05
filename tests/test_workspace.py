@@ -17,9 +17,7 @@ def initialize_repository(path: Path) -> str:
     path.mkdir()
     subprocess.run(["git", "init", "--quiet", str(path)], check=True)
     subprocess.run(["git", "-C", str(path), "config", "user.name", "测试用户"], check=True)
-    subprocess.run(
-        ["git", "-C", str(path), "config", "user.email", "test@example.com"], check=True
-    )
+    subprocess.run(["git", "-C", str(path), "config", "user.email", "test@example.com"], check=True)
     (path / "example.py").write_text("value = 1\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(path), "add", "example.py"], check=True)
     subprocess.run(["git", "-C", str(path), "commit", "--quiet", "-m", "初始提交"], check=True)

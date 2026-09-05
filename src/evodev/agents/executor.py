@@ -2,6 +2,7 @@
 
 import json
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TypeVar
@@ -42,10 +43,12 @@ class AgentExecutor:
         client: ModelClientProtocol,
         toolbox: AgentToolbox,
         prompt_repository: PromptRepository | None = None,
+        event_callback: Callable[[str, dict[str, object]], None] | None = None,
     ) -> None:
         self.client = client
         self.toolbox = toolbox
         self.prompt_repository = prompt_repository or PromptRepository()
+        self.event_callback = event_callback
 
     def invoke(
         self,
@@ -56,6 +59,7 @@ class AgentExecutor:
         output_schema: type[OutputT],
     ) -> AgentInvocation:
         started_at = time.perf_counter()
+        self._emit("agent.started", {"agent_id": agent.id, "agent_name": agent.name})
         rendered_prompt = self.prompt_repository.render_with_version(agent, output_schema)
         messages: list[dict[str, Any]] = [
             {
@@ -103,7 +107,7 @@ class AgentExecutor:
                         ]
                     )
                     continue
-                return AgentInvocation(
+                invocation = AgentInvocation(
                     output=output,
                     tool_calls=trace,
                     prompt_tokens=prompt_tokens,
@@ -113,6 +117,15 @@ class AgentExecutor:
                     model=agent.model,
                     prompt_version=rendered_prompt.effective_version,
                 )
+                self._emit(
+                    "agent.completed",
+                    {
+                        "agent_id": agent.id,
+                        "agent_name": agent.name,
+                        "duration_ms": invocation.duration_ms,
+                    },
+                )
+                return invocation
 
             messages.append(
                 {
@@ -134,6 +147,15 @@ class AgentExecutor:
             for call in reply.tool_calls:
                 if len(trace) >= agent.max_tool_calls:
                     raise AgentExecutionError("Agent 工具调用次数已达到上限")
+                self._emit(
+                    "tool.started",
+                    {
+                        "agent_id": agent.id,
+                        "agent_name": agent.name,
+                        "tool": call.name,
+                        "arguments": call.arguments,
+                    },
+                )
                 try:
                     result = self.toolbox.execute(
                         workspace=workspace,
@@ -154,6 +176,15 @@ class AgentExecutor:
                         "succeeded": succeeded,
                     }
                 )
+                self._emit(
+                    "tool.completed",
+                    {
+                        "agent_id": agent.id,
+                        "agent_name": agent.name,
+                        "tool": call.name,
+                        "succeeded": succeeded,
+                    },
+                )
                 messages.append(
                     {
                         "role": "tool",
@@ -162,6 +193,11 @@ class AgentExecutor:
                     }
                 )
         raise AgentExecutionError("Agent 未在限制内返回最终结果")
+
+    def _emit(self, event_type: str, payload: dict[str, object]) -> None:
+        """向运行服务发送不包含内部思维过程的结构化事件。"""
+        if self.event_callback is not None:
+            self.event_callback(event_type, payload)
 
     @staticmethod
     def _validate_output(content: str | None, schema: type[OutputT]) -> OutputT:
@@ -174,6 +210,4 @@ class AgentExecutor:
                 f"{'.'.join(str(item) for item in error['loc']) or '根对象'}：{error['msg']}"
                 for error in exc.errors(include_url=False, include_input=False)
             )
-            raise AgentExecutionError(
-                f"Agent 返回结果不符合结构化输出要求：{details}"
-            ) from exc
+            raise AgentExecutionError(f"Agent 返回结果不符合结构化输出要求：{details}") from exc

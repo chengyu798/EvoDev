@@ -167,13 +167,9 @@ class RepairPromptBenchmarkEvaluator:
         baseline_repository = PromptRepository(guidance_provider=self.prompt_store)
         candidate_repository = PromptRepository(
             guidance_provider=self.prompt_store,
-            guidance_overrides={
-                agent_role: (candidate.guidance, candidate.effective_version)
-            },
+            guidance_overrides={agent_role: (candidate.guidance, candidate.effective_version)},
         )
-        baseline = [
-            self._run_case(case, baseline_repository, "baseline") for case in cases
-        ]
+        baseline = [self._run_case(case, baseline_repository, "baseline") for case in cases]
         candidate_results = [
             self._run_case(case, candidate_repository, "candidate") for case in cases
         ]
@@ -193,9 +189,7 @@ class RepairPromptBenchmarkEvaluator:
             raise ValueError("Prompt A/B 评测至少需要两个 Bug 任务")
         for case in cases:
             if not case.source_directory.is_absolute():
-                case.source_directory = (
-                    benchmark_file.parent / case.source_directory
-                ).resolve()
+                case.source_directory = (benchmark_file.parent / case.source_directory).resolve()
         return cases
 
     def _run_case(
@@ -334,9 +328,9 @@ class PromptEvolutionWorker:
                     f"可用经验不足：需要 {job.min_experiences} 条，实际 {len(experiences)} 条"
                 )
             agent = self.catalog[job.agent_role]
-            current_prompt = PromptRepository(
-                guidance_provider=self.prompt_store
-            ).render(agent, EVOLVABLE_SCHEMAS[job.agent_role])
+            current_prompt = PromptRepository(guidance_provider=self.prompt_store).render(
+                agent, EVOLVABLE_SCHEMAS[job.agent_role]
+            )
             optimization = self.optimizer.optimize(
                 agent_role=job.agent_role,
                 current_prompt=current_prompt,

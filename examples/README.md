@@ -6,3 +6,4 @@
 - `buggy-calculator/`：包含一个可由多智能体闭环修复的加法错误。
 - `buggy-text-normalizer/`：包含文本清理和大小写规范化错误。
 - `prompt-evolution-benchmarks.json`：当前 Prompt 与候选 Prompt 共用的 A/B 任务清单。
+- `experience-snapshots/`：经验对照实验使用的固定经验输入。

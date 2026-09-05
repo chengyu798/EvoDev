@@ -16,6 +16,7 @@ from evodev.agents.schemas import (
 )
 from evodev.domain.enums import TaskRunStatus
 from evodev.domain.experiences import ExperienceOutcome
+from evodev.evaluation.costs import estimate_token_cost
 from evodev.evaluation.experiences import (
     build_experience_tags,
     extract_failure_experience,
@@ -42,6 +43,9 @@ class WorkflowNodeDependencies:
     artifact_store: LocalArtifactStore
     experience_store: ExperienceStoreProtocol
     agents: RepairAgentsProtocol
+    llm_input_price_per_million: float | None = None
+    llm_output_price_per_million: float | None = None
+    llm_cost_currency: str = "CNY"
 
 
 class RepairWorkflowNodes:
@@ -271,9 +275,7 @@ class RepairWorkflowNodes:
 
     def finalize_failed(self, state: EvoDevState) -> dict[str, object]:
         logger.error("多智能体修复流程失败")
-        experience = self.dependencies.experience_store.save(
-            extract_failure_experience(state)
-        )
+        experience = self.dependencies.experience_store.save(extract_failure_experience(state))
         self.dependencies.artifact_store.write_json(
             state["run_id"],
             "experience.json",
@@ -296,6 +298,13 @@ class RepairWorkflowNodes:
     ) -> dict[str, object]:
         """在工作流结束后保存完整运行指标。"""
         retry_count = max(state.get("iteration", 0) - 1, 0)
+        cost_estimate = estimate_token_cost(
+            state.get("prompt_tokens", 0),
+            state.get("completion_tokens", 0),
+            input_price_per_million=self.dependencies.llm_input_price_per_million,
+            output_price_per_million=self.dependencies.llm_output_price_per_million,
+            currency=self.dependencies.llm_cost_currency,
+        ).model_dump()
         metrics = {
             "run_id": state["run_id"],
             "status": state["status"],
@@ -306,6 +315,7 @@ class RepairWorkflowNodes:
             "prompt_tokens": state.get("prompt_tokens", 0),
             "completion_tokens": state.get("completion_tokens", 0),
             "duration_ms": duration_ms,
+            "cost_estimate": cost_estimate,
             "retrieved_experience_ids": state.get("retrieved_experience_ids", []),
             "generated_experience_id": state.get("generated_experience_id"),
             "experience_feedback": state.get("experience_feedback"),
@@ -322,6 +332,7 @@ class RepairWorkflowNodes:
             "retry_count": retry_count,
             "duration_ms": duration_ms,
             "run_metrics_id": artifact_id,
+            "cost_estimate": cost_estimate,
         }
 
     def finalize_experience_feedback(self, state: EvoDevState) -> dict[str, object]:
@@ -360,6 +371,7 @@ class RepairWorkflowNodes:
             "issue_body": state["issue_body"],
             "test_command": state["test_command"],
             "constraints": state.get("constraints", []),
+            "confirmed_plan": state.get("confirmed_plan"),
         }
 
     def _experience_context(self, state: EvoDevState) -> list[dict[str, object]]:
@@ -402,8 +414,7 @@ class RepairWorkflowNodes:
         return {
             "agent_invocation_ids": [*state.get("agent_invocation_ids", []), artifact_id],
             "prompt_tokens": state.get("prompt_tokens", 0) + invocation.prompt_tokens,
-            "completion_tokens": state.get("completion_tokens", 0)
-            + invocation.completion_tokens,
+            "completion_tokens": state.get("completion_tokens", 0) + invocation.completion_tokens,
             "agent_versions": agent_versions,
         }
 
@@ -458,6 +469,5 @@ def finalize_failed(state: EvoDevState) -> dict[str, object]:
     return {
         "status": TaskRunStatus.FAILED.value,
         "error_code": state.get("error_code") or "REPAIR_LIMIT_REACHED",
-        "error_message": state.get("error_message")
-        or "自动修复次数已达到上限。",
+        "error_message": state.get("error_message") or "自动修复次数已达到上限。",
     }

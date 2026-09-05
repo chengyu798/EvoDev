@@ -42,6 +42,13 @@ class LocalArtifactStore:
         shutil.rmtree(path)
         return True
 
+    def list_run_artifacts(self, run_id: str) -> list[str]:
+        """按文件名列出一次运行产生的普通文件。"""
+        path = self.run_path(run_id)
+        if not path.is_dir():
+            return []
+        return sorted(item.name for item in path.iterdir() if item.is_file())
+
     def write_text(self, run_id: str, artifact_name: str, content: str) -> str:
         """以 UTF-8 保存文本并返回可写入状态的产物标识。"""
         path = self.path_for(run_id, artifact_name)

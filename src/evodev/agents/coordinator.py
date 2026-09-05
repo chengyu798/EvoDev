@@ -5,6 +5,7 @@ from typing import Protocol
 
 from evodev.agents.executor import AgentExecutor, AgentInvocation
 from evodev.agents.schemas import (
+    ConversationReply,
     FailureAnalysis,
     ImplementationResult,
     IssueAnalysis,
@@ -22,6 +23,8 @@ class RepairAgentsProtocol(Protocol):
 
     def review(self, *, workspace: Path, task: dict[str, object]) -> AgentInvocation: ...
 
+    def converse(self, *, workspace: Path, task: dict[str, object]) -> AgentInvocation: ...
+
 
 class RepairAgentCoordinator:
     """根据角色配置调用对应智能体。"""
@@ -37,6 +40,9 @@ class RepairAgentCoordinator:
     def analyze(self, *, workspace: Path, task: dict[str, object]) -> AgentInvocation:
         return self._invoke("analyst", workspace, task, IssueAnalysis)
 
+    def converse(self, *, workspace: Path, task: dict[str, object]) -> AgentInvocation:
+        return self._invoke("conversation", workspace, task, ConversationReply)
+
     def implement(self, *, workspace: Path, task: dict[str, object]) -> AgentInvocation:
         return self._invoke("developer", workspace, task, ImplementationResult)
 
@@ -51,7 +57,13 @@ class RepairAgentCoordinator:
         role: str,
         workspace: Path,
         task: dict[str, object],
-        output_schema: type[IssueAnalysis | ImplementationResult | FailureAnalysis | ReviewResult],
+        output_schema: type[
+            IssueAnalysis
+            | ImplementationResult
+            | FailureAnalysis
+            | ReviewResult
+            | ConversationReply
+        ],
     ) -> AgentInvocation:
         return self.executor.invoke(
             agent=self.catalog[role],

@@ -145,9 +145,7 @@ class MemoryExperienceStore:
 
     def list_for_evolution(self, *, limit: int = 5) -> list[Experience]:
         active = [
-            item
-            for item in self.experiences.values()
-            if item.status is ExperienceStatus.ACTIVE
+            item for item in self.experiences.values() if item.status is ExperienceStatus.ACTIVE
         ]
         return sorted(active, key=lambda item: item.quality_score, reverse=True)[:limit]
 
@@ -297,7 +295,12 @@ def test_repair_workflow_retries_then_saves_patch_and_checkpoint(tmp_path: Path)
         max_iterations=3,
     )
 
-    result = service.execute(run_id=run_id, task=task)
+    completed_nodes: list[str] = []
+    result = service.execute(
+        run_id=run_id,
+        task=task,
+        progress_callback=lambda node, _: completed_nodes.append(node),
+    )
 
     assert result["status"] == TaskRunStatus.SUCCEEDED
     assert result["iteration"] == 2
@@ -315,14 +318,14 @@ def test_repair_workflow_retries_then_saves_patch_and_checkpoint(tmp_path: Path)
         result["run_metrics_id"],
     )
     assert metrics["workflow_version"] == "bug_fix@1"
-    assert metrics["agent_versions"]["IssueAnalysis"] == (
-        "prompt=test-prompt;model=test-model"
-    )
+    assert metrics["agent_versions"]["IssueAnalysis"] == ("prompt=test-prompt;model=test-model")
     assert len(result["agent_invocation_ids"]) == 5
     patch_path = tmp_path / "outputs" / run_id / result["patch_artifact_id"]
     assert "return left + right" in patch_path.read_text(encoding="utf-8")
     assert agents.implement_count == 2
     assert agents.diagnose_count == 1
+    assert completed_nodes[0] == "prepare_workspace"
+    assert completed_nodes[-1] == "finalize_succeeded"
 
     assert checkpoint_store.count(run_id) > 0
 
@@ -397,9 +400,9 @@ def test_repair_workflow_retrieves_and_injects_experience(tmp_path: Path) -> Non
     assert historical.quality_score == pytest.approx(2 / 3)
     assert result["experience_feedback"] == "success"
     assert agents.analyze_tasks[0]["historical_experiences"][0]["lesson"] == "先核对运算符"
-    assert agents.implement_tasks[0]["historical_experiences"][0][
-        "recommended_actions"
-    ] == ["检查加减号"]
+    assert agents.implement_tasks[0]["historical_experiences"][0]["recommended_actions"] == [
+        "检查加减号"
+    ]
 
 
 def test_repair_workflow_can_enqueue_evolution_after_feedback(tmp_path: Path) -> None:
