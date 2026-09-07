@@ -1,5 +1,6 @@
 """为工作流提供四类智能体的统一调用入口。"""
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol
 
@@ -23,7 +24,13 @@ class RepairAgentsProtocol(Protocol):
 
     def review(self, *, workspace: Path, task: dict[str, object]) -> AgentInvocation: ...
 
-    def converse(self, *, workspace: Path, task: dict[str, object]) -> AgentInvocation: ...
+    def converse(
+        self,
+        *,
+        workspace: Path,
+        task: dict[str, object],
+        on_delta: Callable[[str], None] | None = None,
+    ) -> AgentInvocation: ...
 
 
 class RepairAgentCoordinator:
@@ -40,8 +47,20 @@ class RepairAgentCoordinator:
     def analyze(self, *, workspace: Path, task: dict[str, object]) -> AgentInvocation:
         return self._invoke("analyst", workspace, task, IssueAnalysis)
 
-    def converse(self, *, workspace: Path, task: dict[str, object]) -> AgentInvocation:
-        return self._invoke("conversation", workspace, task, ConversationReply)
+    def converse(
+        self,
+        *,
+        workspace: Path,
+        task: dict[str, object],
+        on_delta: Callable[[str], None] | None = None,
+    ) -> AgentInvocation:
+        return self._invoke(
+            "conversation",
+            workspace,
+            task,
+            ConversationReply,
+            output_delta_callback=on_delta,
+        )
 
     def implement(self, *, workspace: Path, task: dict[str, object]) -> AgentInvocation:
         return self._invoke("developer", workspace, task, ImplementationResult)
@@ -64,10 +83,12 @@ class RepairAgentCoordinator:
             | ReviewResult
             | ConversationReply
         ],
+        output_delta_callback: Callable[[str], None] | None = None,
     ) -> AgentInvocation:
         return self.executor.invoke(
             agent=self.catalog[role],
             workspace=workspace,
             task=task,
             output_schema=output_schema,
+            output_delta_callback=output_delta_callback,
         )

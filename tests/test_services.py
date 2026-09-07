@@ -80,8 +80,10 @@ class FakeReadOnlyAgents:
             validation_steps=["运行 pytest -q。"],
         )
 
-    def converse(self, task, content) -> ConversationReply:
+    def converse(self, task, content, on_delta=None) -> ConversationReply:
         del task
+        if on_delta:
+            on_delta("我会先更新计划。" if "修复" in content else "问题来自错误的运算符。")
         if "修复" in content:
             return ConversationReply(
                 intent="modify",
@@ -206,8 +208,8 @@ def test_initial_message_is_classified_before_planning(tmp_path: Path) -> None:
 
 def test_failed_response_is_persisted_and_can_be_retried(tmp_path: Path) -> None:
     class FailingAgents(FakeReadOnlyAgents):
-        def converse(self, task, content):
-            del task, content
+        def converse(self, task, content, on_delta=None):
+            del task, content, on_delta
             raise AgentExecutionError("Agent 工具调用次数已达到上限")
 
     repository = tmp_path / "repository"

@@ -25,8 +25,10 @@ class FakeReadOnlyAgents:
             implementation_steps=["修改示例代码。"],
         )
 
-    def converse(self, task, content) -> ConversationReply:
+    def converse(self, task, content, on_delta=None) -> ConversationReply:
         del task, content
+        if on_delta:
+            on_delta("示例回答。")
         return ConversationReply(intent="explain", response="示例回答。")
 
 
@@ -95,6 +97,34 @@ def test_initial_message_uses_conversation_route_without_creating_plan(tmp_path)
     assert response.json()["plans"] == []
 
 
+def test_conversation_stream_pushes_text_and_final_task(tmp_path) -> None:
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    subprocess.run(
+        ["git", "-C", str(tmp_path), "commit", "--allow-empty", "-m", "init", "-q"],
+        check=True,
+    )
+
+    with TestClient(create_app(memory_services)) as client:
+        task = client.post(
+            "/api/tasks",
+            json={
+                "repository_path": str(tmp_path),
+                "issue_title": "解释代码",
+                "issue_body": "这个模块做什么？",
+                "test_command": "pytest -q",
+                "constraints": [],
+            },
+        ).json()
+        with client.stream("POST", f"/api/tasks/{task['id']}/respond/stream") as response:
+            body = "".join(response.iter_text())
+
+    assert response.status_code == 200
+    assert "event: delta" in body
+    assert '"delta": "示例回答。"' in body
+    assert "event: complete" in body
+    assert '"content": "示例回答。"' in body
+
+
 def test_http_run_executes_workflow_and_returns_evidence(tmp_path: Path) -> None:
     repository = tmp_path / "repository"
     repository.mkdir()
@@ -157,7 +187,13 @@ def test_http_run_executes_workflow_and_returns_evidence(tmp_path: Path) -> None
             time.sleep(0.01)
             run = client.get(f"/api/runs/{run['id']}").json()
         artifacts = client.get(f"/api/runs/{run['id']}/artifacts").json()
+        with client.stream("GET", f"/api/runs/{run['id']}/stream") as stream_response:
+            stream_body = "".join(stream_response.iter_text())
 
     assert run["tests_passed"] is True
     assert artifacts["verification_tests"][0]["stdout"] == "2 passed"
     assert artifacts["patch"] == "+修复内容\n"
+    assert stream_response.status_code == 200
+    assert "event: run_event" in stream_body
+    assert "event: stream_end" in stream_body
+    assert '"event_type": "run.completed"' in stream_body

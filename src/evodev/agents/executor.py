@@ -17,6 +17,70 @@ from evodev.domain.agents import AgentDefinition
 OutputT = TypeVar("OutputT", bound=BaseModel)
 
 
+class JsonStringFieldStreamer:
+    """从分块 JSON 中提取一个字符串字段，避免把 JSON 语法推送给调用方。"""
+
+    def __init__(self, field: str, on_delta: Callable[[str], None]) -> None:
+        self.marker = f'"{field}"'
+        self.on_delta = on_delta
+        self.buffer = ""
+        self.started = False
+        self.finished = False
+        self.escaped = False
+        self.unicode_escape = ""
+
+    def feed(self, chunk: str) -> None:
+        if self.finished:
+            return
+        self.buffer += chunk
+        if not self.started:
+            marker_index = self.buffer.find(self.marker)
+            if marker_index < 0:
+                self.buffer = self.buffer[-len(self.marker) :]
+                return
+            colon_index = self.buffer.find(":", marker_index + len(self.marker))
+            quote_index = self.buffer.find('"', colon_index + 1) if colon_index >= 0 else -1
+            if quote_index < 0:
+                self.buffer = self.buffer[marker_index:]
+                return
+            self.started = True
+            self.buffer = self.buffer[quote_index + 1 :]
+        self._flush_value()
+
+    def _flush_value(self) -> None:
+        output: list[str] = []
+        consumed = 0
+        for index, character in enumerate(self.buffer):
+            consumed = index + 1
+            if self.unicode_escape:
+                self.unicode_escape += character
+                if len(self.unicode_escape) == 5:
+                    try:
+                        output.append(chr(int(self.unicode_escape[1:], 16)))
+                    except ValueError:
+                        output.append(self.unicode_escape)
+                    self.unicode_escape = ""
+                    self.escaped = False
+                continue
+            if self.escaped:
+                if character == "u":
+                    self.unicode_escape = "u"
+                    continue
+                output.append({"n": "\n", "r": "\r", "t": "\t"}.get(character, character))
+                self.escaped = False
+                continue
+            if character == "\\":
+                self.escaped = True
+                continue
+            if character == '"':
+                self.finished = True
+                break
+            output.append(character)
+        self.buffer = self.buffer[consumed:]
+        if output:
+            self.on_delta("".join(output))
+
+
 class AgentExecutionError(RuntimeError):
     """智能体未能在限制内生成合法结果。"""
 
@@ -57,6 +121,7 @@ class AgentExecutor:
         workspace: Path,
         task: dict[str, object],
         output_schema: type[OutputT],
+        output_delta_callback: Callable[[str], None] | None = None,
     ) -> AgentInvocation:
         started_at = time.perf_counter()
         self._emit("agent.started", {"agent_id": agent.id, "agent_name": agent.name})
@@ -76,13 +141,41 @@ class AgentExecutor:
         prompt_tokens = 0
         completion_tokens = 0
         output_repair_attempted = False
+        stream_field = {
+            "conversation": "response",
+            "reviewer": "summary",
+        }.get(agent.id.split("@", maxsplit=1)[0])
 
         for _ in range(agent.max_tool_calls + 1):
+
+            def emit_output_delta(delta: str) -> None:
+                self._emit(
+                    "agent.output.delta",
+                    {
+                        "agent_id": agent.id,
+                        "agent_name": agent.name,
+                        "field": stream_field or "",
+                        "delta": delta,
+                    },
+                )
+                if output_delta_callback is not None:
+                    output_delta_callback(delta)
+
+            field_streamer = (
+                JsonStringFieldStreamer(
+                    stream_field,
+                    emit_output_delta,
+                )
+                if stream_field
+                and (self.event_callback is not None or output_delta_callback is not None)
+                else None
+            )
             reply = self.client.complete(
                 agent=agent,
                 messages=messages,
                 tools=tools,
                 output_schema=output_schema,
+                on_delta=field_streamer.feed if field_streamer else None,
             )
             prompt_tokens += reply.prompt_tokens
             completion_tokens += reply.completion_tokens

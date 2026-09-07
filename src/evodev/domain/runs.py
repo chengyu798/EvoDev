@@ -45,7 +45,7 @@ class RunEvent(BaseModel):
 
 
 class RunArtifactBundle(BaseModel):
-    """前端复查一次运行所需的输出文件集合。"""
+    """复查一次运行所需的输出文件集合。"""
 
     run_id: UUID
     baseline_test: dict[str, object] | None = None

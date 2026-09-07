@@ -1,6 +1,7 @@
 """封装大模型调用，避免工作流依赖具体服务商。"""
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -38,6 +39,7 @@ class ModelClientProtocol(Protocol):
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]],
         output_schema: type[BaseModel],
+        on_delta: Callable[[str], None] | None = None,
     ) -> ModelReply: ...
 
 
@@ -59,11 +61,13 @@ class LiteLLMClient:
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]],
         output_schema: type[BaseModel],
+        on_delta: Callable[[str], None] | None = None,
     ) -> ModelReply:
         # 延迟导入可避免不执行模型任务的命令产生网络初始化开销。
-        from litellm import completion
+        from litellm import completion, stream_chunk_builder
 
-        response = completion(
+        chunks = []
+        response_stream = completion(
             model=agent.model,
             messages=messages,
             tools=tools or None,
@@ -73,7 +77,18 @@ class LiteLLMClient:
             base_url=self.base_url,
             # DeepSeek Chat Completions 使用 json_object，具体字段继续由 Pydantic 校验。
             response_format={"type": "json_object"},
+            stream=True,
         )
+        for chunk in response_stream:
+            chunks.append(chunk)
+            if on_delta is None or not chunk.choices:
+                continue
+            content = getattr(chunk.choices[0].delta, "content", None)
+            if isinstance(content, str) and content:
+                on_delta(content)
+        response = stream_chunk_builder(chunks=chunks, messages=messages)
+        if response is None:
+            raise ModelResponseError("模型流式响应为空")
         message = response.choices[0].message
         tool_calls = [self._parse_tool_call(item) for item in message.tool_calls or []]
         usage = response.usage

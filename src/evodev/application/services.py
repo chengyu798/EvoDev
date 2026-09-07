@@ -102,7 +102,12 @@ class ReadOnlyAgentServiceProtocol(Protocol):
 
     def create_plan(self, task: TaskRead, feedback: str | None = None) -> TaskPlan: ...
 
-    def converse(self, task: TaskRead, content: str) -> ConversationReply: ...
+    def converse(
+        self,
+        task: TaskRead,
+        content: str,
+        on_delta: Callable[[str], None] | None = None,
+    ) -> ConversationReply: ...
 
 
 class TaskService:
@@ -211,15 +216,24 @@ class TaskService:
         return self.store.save(task)
 
     @serialized_task
-    def add_message(self, task_id: UUID, payload: TaskMessageCreate) -> TaskRead:
+    def add_message(
+        self,
+        task_id: UUID,
+        payload: TaskMessageCreate,
+        on_delta: Callable[[str], None] | None = None,
+    ) -> TaskRead:
         task = self.get(task_id)
         task.messages.append(TaskMessage(role="user", content=payload.content))
         task.updated_at = utc_now()
         self.store.save(task)
-        return self.respond(task_id)
+        return self.respond(task_id, on_delta=on_delta)
 
     @serialized_task
-    def respond(self, task_id: UUID) -> TaskRead:
+    def respond(
+        self,
+        task_id: UUID,
+        on_delta: Callable[[str], None] | None = None,
+    ) -> TaskRead:
         """处理已保存的用户消息；失败重试不会重复追加同一条消息。"""
         task = self.get(task_id)
         if not task.messages or task.messages[-1].role != "user":
@@ -232,7 +246,7 @@ class TaskService:
             context = task.model_copy(deep=True)
             if self.evidence_provider is not None:
                 context.run_evidence = self.evidence_provider(task_id)
-            reply = self.read_only_agents.converse(context, message.content)
+            reply = self.read_only_agents.converse(context, message.content, on_delta=on_delta)
         except Exception as exc:
             self._reasoning_failed(task, exc)
         message.intent = reply.intent

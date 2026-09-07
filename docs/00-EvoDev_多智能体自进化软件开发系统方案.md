@@ -30,7 +30,7 @@ Agent / Skill / Workflow 进化
 4. 能够根据测试结果、代码审查结果和历史轨迹自动评估任务质量。
 5. 支持经验、Agent 和 Workflow 三个层级的持续进化。
 6. 能够通过 SWE-bench 等 Benchmark 验证进化前后的效果。
-7. 最终具备完整前端、运行轨迹、代码 Diff 和进化 Dashboard，可作为简历项目展示。
+7. 最终具备完整运行轨迹、代码 Diff 和进化评测能力，可作为简历项目展示。
 
 ---
 
@@ -693,18 +693,6 @@ flowchart TD
 # 15. 分层技术架构
 
 ```text
-Frontend
-React / TypeScript
-│
-├── Task Console
-├── Agent Topology
-├── Agent Trace
-├── Git Diff
-├── Test Result
-└── Evolution Dashboard
-         │
-         ▼
-────────────────────────
 FastAPI Backend
 ────────────────────────
          │
@@ -773,8 +761,6 @@ Evaluation
 | Vector Memory | pgvector / Qdrant |
 | Cache | Redis |
 | Task Queue | Celery + Redis |
-| Frontend | React + TypeScript |
-| Visualization | ECharts |
 | Trace | Langfuse / 自研 Trace |
 | Evaluation | SWE-bench + pytest |
 | Data Analysis | Pandas |
@@ -847,7 +833,7 @@ Dynamic Orchestration
 
 但是 EvoDev 不能只是：
 
-> Fork ChatDev + 修改 UI。
+> Fork ChatDev + 更换外层包装。
 
 而应该将 ChatDev 视为：
 
@@ -860,7 +846,7 @@ Dynamic Orchestration
 - Experience Memory
 - Agent Versioning
 - Workflow Evolution
-- Evolution Dashboard
+- Evolution Metrics
 
 ---
 
@@ -1058,7 +1044,7 @@ Versioning
 
 ---
 
-## EvoDev V4：Benchmark 与 Dashboard
+## EvoDev V4：Benchmark 与评测报告
 
 增加：
 
@@ -1069,7 +1055,7 @@ Versioning
 - Cost
 - Retry Count
 - Agent Trace
-- Workflow Visualization
+- Workflow Metrics
 
 ---
 
@@ -1086,7 +1072,7 @@ Versioning
 | **7** | 实现 Agent Evolution | V2 |
 | **8** | 实现 Workflow Evolution | V3 |
 | **9** | 接入 SWE-bench | Benchmark |
-| **10** | Dashboard 和前端 | 简历展示版本 |
+| **10** | 完成交付材料与演示验证 | 简历展示版本 |
 
 ---
 

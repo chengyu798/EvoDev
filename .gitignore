@@ -15,6 +15,3 @@ outputs/*
 !outputs/.gitkeep
 !outputs/README.md
 .evodev/
-frontend/node_modules/
-frontend/dist/
-frontend/.vite/

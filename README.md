@@ -8,12 +8,8 @@ EvoDev 是一个基于 LangGraph 的多智能体软件修复系统。系统接�
 经验的真实效果会改变后续排序；独立 Worker 还能生成候选 Prompt，通过真实 A/B 评测后
 自动升级或拒绝。
 
-Web 控制台采用明亮的对话式智能体工作台布局。用户可以直接描述代码问题，并在设置区
-补充仓库、测试命令和修改约束；运行期间可以查看 LangGraph 节点进度，完成后通过选项卡
-复查测试报告、智能体轨迹、代码差异和失败经验。任务和运行摘要保存在 PostgreSQL，完整
-运行证据保存在 `outputs/`。
-
-![EvoDev 会话与运行证据](docs/assets/web-demo/新版运行证据.png)
+任务可以通过 CLI 或 HTTP API 提交。任务和运行摘要保存在 PostgreSQL，完整运行证据保存
+在 `outputs/`。
 
 ## 目录导航
 
@@ -32,7 +28,6 @@ Web 控制台采用明亮的对话式智能体工作台布局。用户可以直�
 | `src/evodev/observability/` | 运行事件和完整执行轨迹 |
 | `tests/` | 后端接口、领域逻辑和工作流测试 |
 | `examples/` | 可重复执行的错误代码演示样例 |
-| `frontend/` | React 前端应用和组件测试 |
 | `sandbox/` | Python 代码执行沙箱镜像 |
 | `outputs/` | 按运行编号保存补丁、日志、测试报告和 Agent 轨迹 |
 | `data/` | 预留的本地业务数据目录；工作流检查点保存在 PostgreSQL |
@@ -46,9 +41,7 @@ Web 控制台采用明亮的对话式智能体工作台布局。用户可以直�
 - [手动测试指南](docs/04-手动测试指南.md)
 - [经验进化说明](docs/05-经验进化说明.md)
 - [自进化机制说明](docs/06-自进化机制说明.md)
-- [接口与前端联调](docs/07-接口与前端联调.md)
-- [前端设计参考](docs/08-前端设计参考.md)
-- [前端交互设计](docs/09-前端交互设计.md)
+- [接口说明](docs/07-接口说明.md)
 - [交付验收与演示](docs/10-交付验收与演示.md)
 
 ## 本地启动
@@ -78,26 +71,11 @@ uv run evodev evolution-worker --once
 uv run evodev prompt-versions --agent developer
 ```
 
-启动前端：
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-浏览器访问 `http://127.0.0.1:5173`。页面提交运行后，HTTP 接口会立即返回，后台继续执行
-多智能体修复；运行状态和产物会自动刷新。
-
 ## 质量检查
 
 ```bash
 uv run pytest
 uv run ruff check .
-cd frontend
-npm run lint
-npm run test
-npm run build
 ```
 
 ## 沙箱镜像

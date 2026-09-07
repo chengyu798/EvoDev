@@ -10,7 +10,7 @@ PostgreSQL 保存任务、运行摘要和节点事件；内存仓库只用于自
 `RepairWorkflowService` 组装四类 Agent、LangGraph 节点和 PostgreSQL Checkpointer，执行
 完整的“分析—修改—测试—失败诊断—审查—生成补丁”闭环。模型或基础设施异常会转换为
 包含错误编码和原因的失败状态。`RunService` 在后台线程调用该工作流，并将 LangGraph 每个
-节点的状态更新转换为前端可轮询的运行事件。
+节点的状态更新转换为调用方可查询的运行事件。
 
 `ReadOnlyAgentService` 组装对话与规划 Agent。对话 Agent 只能读取仓库和已有证据；规划
 Agent 在临时隔离副本中读取代码并运行安全诊断，生成计划后立即清理临时工作区。计划未

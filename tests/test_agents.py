@@ -6,9 +6,9 @@ from pathlib import Path
 import pytest
 
 from evodev.agents.client import ModelReply, ToolCall
-from evodev.agents.executor import AgentExecutionError, AgentExecutor
+from evodev.agents.executor import AgentExecutionError, AgentExecutor, JsonStringFieldStreamer
 from evodev.agents.prompting import PromptRepository, PromptTemplateError
-from evodev.agents.schemas import IssueAnalysis
+from evodev.agents.schemas import IssueAnalysis, ReviewResult
 from evodev.agents.tools import AgentToolbox
 from evodev.domain.agents import AgentDefinition
 from evodev.tools.edit import EditTools
@@ -28,6 +28,21 @@ class ScriptedModelClient:
         return self.replies.pop(0)
 
 
+class StreamingModelClient:
+    """模拟模型逐块返回结构化 JSON。"""
+
+    def complete(self, **kwargs: object) -> ModelReply:
+        content = (
+            '{"passed":true,"summary":"修复已完成，14 项测试全部通过。",'
+            '"requirement_coverage":[],"risks":[],"required_changes":[]}'
+        )
+        on_delta = kwargs.get("on_delta")
+        if callable(on_delta):
+            for chunk in [content[:28], content[28:45], content[45:]]:
+                on_delta(chunk)
+        return ModelReply(content=content)
+
+
 def analyst_definition(*, max_tool_calls: int = 2) -> AgentDefinition:
     return AgentDefinition(
         id="analyst@1",
@@ -38,6 +53,18 @@ def analyst_definition(*, max_tool_calls: int = 2) -> AgentDefinition:
         allowed_tools=["list_files"],
         output_schema="IssueAnalysis",
         max_tool_calls=max_tool_calls,
+    )
+
+
+def reviewer_definition() -> AgentDefinition:
+    return AgentDefinition(
+        id="reviewer@1",
+        name="补丁审查智能体",
+        role="审查补丁并给出最终结论。",
+        prompt_file="reviewer.md",
+        model="test-model",
+        allowed_tools=[],
+        output_schema="ReviewResult",
     )
 
 
@@ -52,6 +79,47 @@ def valid_analysis_json() -> str:
         },
         ensure_ascii=False,
     )
+
+
+def test_json_string_field_streamer_only_emits_target_text() -> None:
+    deltas: list[str] = []
+    streamer = JsonStringFieldStreamer("summary", deltas.append)
+
+    chunks = [
+        '{"passed":true,"sum',
+        'mary":"修复已',
+        '完成\\n14 项',
+        '测试通过。","risks":[]}',
+    ]
+    for chunk in chunks:
+        streamer.feed(chunk)
+
+    assert "".join(deltas) == "修复已完成\n14 项测试通过。"
+
+
+def test_reviewer_streams_only_user_facing_summary(tmp_path: Path) -> None:
+    events: list[tuple[str, dict[str, object]]] = []
+    toolbox = AgentToolbox(RepositoryTools(), EditTools(), GitTools())
+
+    invocation = AgentExecutor(
+        StreamingModelClient(),
+        toolbox,
+        event_callback=lambda event_type, payload: events.append((event_type, payload)),
+    ).invoke(
+        agent=reviewer_definition(),
+        workspace=tmp_path,
+        task={"issue_title": "修复金额计算"},
+        output_schema=ReviewResult,
+    )
+
+    streamed_text = "".join(
+        str(payload["delta"])
+        for event_type, payload in events
+        if event_type == "agent.output.delta"
+    )
+    assert streamed_text == "修复已完成，14 项测试全部通过。"
+    assert "passed" not in streamed_text
+    assert invocation.output.passed is True
 
 
 def test_agent_executes_allowed_tool_then_returns_structured_result(tmp_path: Path) -> None:

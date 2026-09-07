@@ -1,5 +1,6 @@
 """组装只读对话与规划智能体。"""
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 from uuid import uuid4
@@ -63,12 +64,18 @@ class ReadOnlyAgentService:
             base_commit=base_commit,
         )
 
-    def converse(self, task: TaskRead, content: str) -> ConversationReply:
+    def converse(
+        self,
+        task: TaskRead,
+        content: str,
+        on_delta: Callable[[str], None] | None = None,
+    ) -> ConversationReply:
         context = self._task_context(task)
         context["latest_user_message"] = content
         invocation = self.agents.converse(
             workspace=Path(task.repository_path),
             task=context,
+            on_delta=on_delta,
         )
         return cast(ConversationReply, invocation.output)
 
