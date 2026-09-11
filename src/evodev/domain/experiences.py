@@ -52,3 +52,36 @@ class Experience(BaseModel):
             "lesson": self.lesson,
             "recommended_actions": self.recommended_actions,
         }
+
+
+class ExperienceMatch(BaseModel):
+    """一次可解释的经验检索结果。"""
+
+    experience: Experience
+    score: float = Field(ge=0.0)
+    relevance_score: float = Field(ge=0.0)
+    quality_factor: float = Field(ge=0.0)
+    matched_tags: list[str] = Field(default_factory=list)
+    reasons: list[str] = Field(default_factory=list)
+
+    def prompt_context(self) -> dict[str, object]:
+        """在经验内容中附带命中依据，供 Agent 判断是否采用。"""
+        return self.experience.prompt_context() | {
+            "retrieval": {
+                "score": round(self.score, 3),
+                "matched_tags": self.matched_tags,
+                "reasons": self.reasons,
+            }
+        }
+
+    def audit_context(self) -> dict[str, object]:
+        """返回适合写入运行状态和审计产物的匹配摘要。"""
+        return {
+            "experience_id": str(self.experience.id),
+            "score": round(self.score, 3),
+            "relevance_score": round(self.relevance_score, 3),
+            "quality_score": self.experience.quality_score,
+            "quality_factor": round(self.quality_factor, 3),
+            "matched_tags": self.matched_tags,
+            "reasons": self.reasons,
+        }

@@ -8,18 +8,66 @@ from evodev.domain.experiences import Experience
 from evodev.workflows.state import EvoDevState
 
 TERM_PATTERN = re.compile(r"[a-zA-Z][a-zA-Z0-9_]{1,39}")
+FILE_PATTERN = re.compile(r"(?:[\w.-]+/)*[\w.-]+\.[a-zA-Z0-9]+")
+CALL_PATTERN = re.compile(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(")
+FUNCTION_PATTERNS = (
+    re.compile(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:函数|方法)"),
+    re.compile(r"(?:函数|方法)\s*([a-zA-Z_][a-zA-Z0-9_]*)\b"),
+)
 IGNORED_TERMS = {
     "and",
     "bug",
+    "code",
     "error",
     "fix",
     "for",
     "from",
     "pytest",
+    "py",
+    "project",
+    "python",
     "test",
     "tests",
     "the",
     "with",
+}
+TECHNOLOGY_TERMS = {
+    "async",
+    "decimal",
+    "docker",
+    "fastapi",
+    "json",
+    "postgresql",
+    "pydantic",
+    "python",
+    "regex",
+    "sqlalchemy",
+    "unicode",
+}
+ERROR_FEATURES = {
+    "calculation": (
+        "amount",
+        "arithmetic",
+        "calculator",
+        "discount",
+        "subtotal",
+        "金额",
+        "折扣",
+        "计算",
+    ),
+    "text_normalization": (
+        "normalize",
+        "normalizer",
+        "strip",
+        "whitespace",
+        "文本",
+        "空白",
+        "规范化",
+    ),
+    "boundary_condition": ("boundary", "threshold", "边界", "门槛", "阈值"),
+    "exception_handling": ("exception", "raise", "异常", "报错"),
+    "type_error": ("typeerror", "类型错误"),
+    "async_context": ("async with", "异步上下文"),
 }
 
 
@@ -31,16 +79,33 @@ def build_experience_tags(
     task_type: str = "bug_fix",
 ) -> list[str]:
     """从任务文本和相关文件生成稳定、可解释的检索标签。"""
+    text = f"{issue_title} {issue_body}".lower()
     tags = {f"task:{task_type}"}
-    for term in TERM_PATTERN.findall(f"{issue_title} {issue_body}".lower()):
-        if term not in IGNORED_TERMS:
-            tags.add(f"term:{term}")
-    for file_name in relevant_files or []:
+
+    files = [*FILE_PATTERN.findall(text), *(relevant_files or [])]
+    for file_name in files:
         path = Path(file_name)
         tags.add(f"file:{path.name.lower()}")
         if path.suffix:
             tags.add(f"ext:{path.suffix.lower().removeprefix('.')}")
-    return sorted(tags)[:20]
+
+    functions = set(CALL_PATTERN.findall(text))
+    for pattern in FUNCTION_PATTERNS:
+        functions.update(pattern.findall(text))
+    tags.update(f"function:{name}" for name in functions if name not in IGNORED_TERMS)
+
+    for feature, markers in ERROR_FEATURES.items():
+        if any(marker in text for marker in markers):
+            tags.add(f"error:{feature}")
+
+    terms = TERM_PATTERN.findall(text)
+    tags.update(f"tech:{term}" for term in terms if term in TECHNOLOGY_TERMS)
+    for term in terms:
+        if term not in IGNORED_TERMS and term not in TECHNOLOGY_TERMS:
+            tags.add(f"term:{term}")
+
+    priority = {"error": 0, "file": 1, "function": 2, "tech": 3, "term": 4, "task": 5, "ext": 6}
+    return sorted(tags, key=lambda tag: (priority.get(tag.partition(":")[0], 7), tag))[:20]
 
 
 def extract_failure_experience(state: EvoDevState) -> Experience:

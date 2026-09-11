@@ -31,6 +31,8 @@ class EvoDevState(TypedDict):
     evaluation_result_id: NotRequired[str | None]
     agent_invocation_ids: NotRequired[list[str]]
     generated_experience_id: NotRequired[str | None]
+    experience_retrieval_id: NotRequired[str | None]
+    retrieved_experience_matches: NotRequired[list[dict[str, object]]]
     experience_feedback: NotRequired[str | None]
     experience_feedback_count: NotRequired[int]
     prompt_evolution_job_id: NotRequired[str | None]

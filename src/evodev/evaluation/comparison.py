@@ -20,9 +20,10 @@ from evodev.application.evolution import (
 )
 from evodev.application.repair import build_repair_workflow_service
 from evodev.config import Settings
-from evodev.domain.experiences import Experience
+from evodev.domain.experiences import Experience, ExperienceMatch
 from evodev.domain.tasks import TaskRead
 from evodev.evaluation.costs import estimate_token_cost
+from evodev.evaluation.retrieval import rank_experience_matches
 
 
 class FrozenExperienceStore(NullExperienceStore):
@@ -31,24 +32,23 @@ class FrozenExperienceStore(NullExperienceStore):
     def __init__(self, experiences: list[Experience]) -> None:
         self.experiences = [item.model_copy(deep=True) for item in experiences]
 
-    def search(self, *, task_type: str, tags: list[str], limit: int = 3) -> list[Experience]:
+    def search(
+        self,
+        *,
+        task_type: str,
+        tags: list[str],
+        limit: int = 3,
+    ) -> list[ExperienceMatch]:
         selected = [
             item
             for item in self.experiences
-            if item.task_type == task_type
-            and item.status == "active"
-            and set(item.tags).intersection(tags)
+            if item.task_type == task_type and item.status == "active"
         ]
-        selected.sort(
-            key=lambda item: (
-                len(set(item.tags).intersection(tags)),
-                item.quality_score,
-                item.usage_count,
-                item.created_at,
-            ),
-            reverse=True,
+        return rank_experience_matches(
+            (item.model_copy(deep=True) for item in selected),
+            tags,
+            limit=limit,
         )
-        return [item.model_copy(deep=True) for item in selected[: max(0, limit)]]
 
     def get_many(self, experience_ids: list[UUID]) -> list[Experience]:
         by_id = {item.id: item for item in self.experiences}

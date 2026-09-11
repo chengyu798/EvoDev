@@ -119,6 +119,10 @@ def test_postgres_experience_store_searches_and_counts_usage_once() -> None:
             task_type="bug_fix",
             tags=["task:bug_fix", "term:unique_calculator"],
         )
+        generic_only = store.search(
+            task_type="bug_fix",
+            tags=["task:bug_fix", "ext:py"],
+        )
         first_count = store.record_usage([saved.id], consumer_run_id)
         second_count = store.record_usage([saved.id], consumer_run_id)
         feedback_count = store.finalize_run_usage(
@@ -131,7 +135,9 @@ def test_postgres_experience_store_searches_and_counts_usage_once() -> None:
         )
         reloaded = store.get_many([saved.id])[0]
 
-        assert found[0].id == saved.id
+        assert found[0].experience.id == saved.id
+        assert "任务关键词匹配：unique_calculator" in found[0].reasons
+        assert all(match.experience.id != saved.id for match in generic_only)
         assert first_count == 1
         assert second_count == 0
         assert feedback_count == 1

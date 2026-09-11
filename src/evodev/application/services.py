@@ -425,6 +425,11 @@ class RunService:
                 else None
             ),
             experience=self._read_json_if_present(run_key, names, "experience.json"),
+            experience_retrieval=self._read_json_if_present(
+                run_key,
+                names,
+                "experience-retrieval.json",
+            ),
             metrics=self._read_json_if_present(run_key, names, "run-metrics.json"),
         )
 

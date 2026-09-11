@@ -21,6 +21,7 @@ from evodev.evaluation.experiences import (
     build_experience_tags,
     extract_failure_experience,
 )
+from evodev.evaluation.retrieval import MINIMUM_MATCH_SCORE
 from evodev.persistence.artifacts import LocalArtifactStore
 from evodev.persistence.experiences import ExperienceStoreProtocol
 from evodev.runtime.testing import PytestRunner
@@ -105,24 +106,40 @@ class RepairWorkflowNodes:
             issue_title=state["issue_title"],
             issue_body=state["issue_body"],
         )
-        experiences = self.dependencies.experience_store.search(
+        matches = self.dependencies.experience_store.search(
             task_type="bug_fix",
             tags=tags,
             limit=3,
         )
+        experiences = [match.experience for match in matches]
         experience_ids = [experience.id for experience in experiences]
+        match_audits = [match.audit_context() for match in matches]
+        retrieval_artifact_id = self.dependencies.artifact_store.write_json(
+            state["run_id"],
+            "experience-retrieval.json",
+            {
+                "task_type": "bug_fix",
+                "query_tags": tags,
+                "minimum_match_score": MINIMUM_MATCH_SCORE,
+                "matches": match_audits,
+            },
+        )
         self.dependencies.experience_store.record_usage(
             experience_ids,
             UUID(state["run_id"]),
         )
-        if experiences:
-            logger.info("已检索并注入历史经验", 数量=len(experiences))
+        if matches:
+            logger.info(
+                "已检索并注入历史经验",
+                数量=len(matches),
+                最高匹配分=round(matches[0].score, 3),
+            )
         invocation = self.dependencies.agents.analyze(
             workspace=self._workspace(state),
             task=self._base_task(state)
             | {
                 "historical_experiences": [
-                    experience.prompt_context() for experience in experiences
+                    match.prompt_context() for match in matches
                 ]
             },
         )
@@ -131,6 +148,8 @@ class RepairWorkflowNodes:
             "status": TaskRunStatus.ANALYZING.value,
             "issue_analysis": output.model_dump(),
             "retrieved_experience_ids": [str(item) for item in experience_ids],
+            "retrieved_experience_matches": match_audits,
+            "experience_retrieval_id": retrieval_artifact_id,
             **self._invocation_update(state, "analyst-0.json", invocation),
         }
 
@@ -317,6 +336,10 @@ class RepairWorkflowNodes:
             "duration_ms": duration_ms,
             "cost_estimate": cost_estimate,
             "retrieved_experience_ids": state.get("retrieved_experience_ids", []),
+            "retrieved_experience_matches": state.get(
+                "retrieved_experience_matches", []
+            ),
+            "experience_retrieval_id": state.get("experience_retrieval_id"),
             "generated_experience_id": state.get("generated_experience_id"),
             "experience_feedback": state.get("experience_feedback"),
             "experience_feedback_count": state.get("experience_feedback_count", 0),
@@ -376,8 +399,19 @@ class RepairWorkflowNodes:
 
     def _experience_context(self, state: EvoDevState) -> list[dict[str, object]]:
         ids = [UUID(value) for value in state.get("retrieved_experience_ids", [])]
+        match_by_id = {
+            str(item.get("experience_id")): item
+            for item in state.get("retrieved_experience_matches", [])
+        }
         return [
             experience.prompt_context()
+            | {
+                "retrieval": {
+                    key: value
+                    for key, value in match_by_id.get(str(experience.id), {}).items()
+                    if key != "experience_id"
+                }
+            }
             for experience in self.dependencies.experience_store.get_many(ids)
         ]
 

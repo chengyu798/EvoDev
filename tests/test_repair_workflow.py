@@ -19,8 +19,14 @@ from evodev.agents.schemas import (
 from evodev.application.repair import RepairWorkflowService
 from evodev.domain.enums import TaskRunStatus
 from evodev.domain.evolution import PromptEvolutionJob
-from evodev.domain.experiences import Experience, ExperienceOutcome, ExperienceStatus
+from evodev.domain.experiences import (
+    Experience,
+    ExperienceMatch,
+    ExperienceOutcome,
+    ExperienceStatus,
+)
 from evodev.domain.tasks import TaskRead
+from evodev.evaluation.retrieval import rank_experience_matches
 from evodev.persistence.artifacts import LocalArtifactStore
 from evodev.runtime.command import CommandResult
 from evodev.runtime.testing import TestExecutionResult as PytestExecutionResult
@@ -103,12 +109,13 @@ class MemoryExperienceStore:
         task_type: str,
         tags: list[str],
         limit: int = 3,
-    ) -> list[Experience]:
-        return [
+    ) -> list[ExperienceMatch]:
+        candidates = [
             item
             for item in self.experiences.values()
-            if item.task_type == task_type and set(item.tags) & set(tags)
-        ][:limit]
+            if item.task_type == task_type and item.status is ExperienceStatus.ACTIVE
+        ]
+        return rank_experience_matches(candidates, tags, limit=limit)
 
     def get_many(self, experience_ids: list[UUID]) -> list[Experience]:
         return [self.experiences[item] for item in experience_ids]
@@ -370,7 +377,7 @@ def test_repair_workflow_retrieves_and_injects_experience(tmp_path: Path) -> Non
     repository = create_source_repository(tmp_path)
     historical = Experience(
         source_run_id=uuid4(),
-        tags=["task:bug_fix", "term:add"],
+        tags=["task:bug_fix", "function:add"],
         failure_pattern="加法断言失败",
         lesson="先核对运算符",
         recommended_actions=["检查加减号"],
@@ -400,6 +407,16 @@ def test_repair_workflow_retrieves_and_injects_experience(tmp_path: Path) -> Non
     assert historical.quality_score == pytest.approx(2 / 3)
     assert result["experience_feedback"] == "success"
     assert agents.analyze_tasks[0]["historical_experiences"][0]["lesson"] == "先核对运算符"
+    retrieval = agents.analyze_tasks[0]["historical_experiences"][0]["retrieval"]
+    assert retrieval["matched_tags"] == ["function:add", "task:bug_fix"]
+    assert retrieval["reasons"] == ["函数名匹配：add", "任务类型匹配：bug_fix"]
+    retrieval_artifact = LocalArtifactStore(tmp_path / "outputs").read_json(
+        result["run_id"],
+        result["experience_retrieval_id"],
+    )
+    assert retrieval_artifact["minimum_match_score"] == 2.5
+    assert retrieval_artifact["matches"][0]["experience_id"] == str(historical.id)
+    assert retrieval_artifact["matches"][0]["reasons"] == retrieval["reasons"]
     assert agents.implement_tasks[0]["historical_experiences"][0]["recommended_actions"] == [
         "检查加减号"
     ]

@@ -8,3 +8,4 @@ Token 用量。任务成功必须以真实测试证据为基础，不能仅依�
 - `comparison.py`：冻结样例、Prompt 和经验快照，执行可审计的经验对照实验；默认仅预检，
   显式传入 `--execute` 才会调用模型。
 - `experiences.py`：从失败状态提炼 Experience，并生成可解释的检索标签。
+- `retrieval.py`：按标签类别和历史质量计算匹配分，并过滤低相关经验。

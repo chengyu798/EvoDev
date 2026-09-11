@@ -54,4 +54,5 @@ class RunArtifactBundle(BaseModel):
     evaluation: dict[str, object] | None = None
     patch: str | None = None
     experience: dict[str, object] | None = None
+    experience_retrieval: dict[str, object] | None = None
     metrics: dict[str, object] | None = None

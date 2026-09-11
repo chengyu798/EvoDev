@@ -90,6 +90,7 @@ class RepairWorkflowService:
             "max_iterations": task.max_iterations,
             "changed_files": [],
             "retrieved_experience_ids": [],
+            "retrieved_experience_matches": [],
             "agent_invocation_ids": [],
             "iteration": 0,
             "prompt_tokens": 0,

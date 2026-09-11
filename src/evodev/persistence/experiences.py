@@ -8,7 +8,8 @@ from psycopg import connect
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from evodev.domain.experiences import Experience, ExperienceOutcome
+from evodev.domain.experiences import Experience, ExperienceMatch, ExperienceOutcome
+from evodev.evaluation.retrieval import rank_experience_matches
 from evodev.persistence.checkpoints import validate_postgres_url
 
 
@@ -23,7 +24,7 @@ class ExperienceStoreProtocol(Protocol):
         task_type: str,
         tags: list[str],
         limit: int = 3,
-    ) -> list[Experience]: ...
+    ) -> list[ExperienceMatch]: ...
 
     def get_many(self, experience_ids: Iterable[UUID]) -> list[Experience]: ...
 
@@ -154,27 +155,25 @@ class PostgresExperienceStore:
         task_type: str,
         tags: list[str],
         limit: int = 3,
-    ) -> list[Experience]:
+    ) -> list[ExperienceMatch]:
         """按标签相关度和历史有效性检索启用经验。"""
-        if limit < 1:
+        if limit < 1 or not tags:
             return []
         self.setup()
         with connect(self.database_url, row_factory=dict_row) as connection:
             rows = connection.execute(
                 """
-                SELECT *, (
-                    SELECT COUNT(*) FROM unnest(tags) AS stored_tag
-                    WHERE stored_tag = ANY(%s)
-                ) AS match_count
+                SELECT *
                 FROM evodev_experiences
                 WHERE task_type = %s AND status = 'active' AND tags && %s
-                ORDER BY match_count DESC, quality_score DESC, usage_count DESC,
-                    created_at DESC
-                LIMIT %s
                 """,
-                (tags, task_type, tags, limit),
+                (task_type, tags),
             ).fetchall()
-        return [self._from_row(row) for row in rows]
+        return rank_experience_matches(
+            (self._from_row(row) for row in rows),
+            tags,
+            limit=limit,
+        )
 
     def get_many(self, experience_ids: Iterable[UUID]) -> list[Experience]:
         """按传入顺序读取多条经验。"""
@@ -298,6 +297,4 @@ class PostgresExperienceStore:
     def _from_row(row: dict[str, object] | None) -> Experience:
         if row is None:
             raise RuntimeError("PostgreSQL 未返回经验记录")
-        return Experience.model_validate(
-            {key: value for key, value in row.items() if key != "match_count"}
-        )
+        return Experience.model_validate(row)

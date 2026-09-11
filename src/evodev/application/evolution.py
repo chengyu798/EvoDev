@@ -25,7 +25,7 @@ from evodev.domain.evolution import (
     PromptEvolutionJob,
     PromptVersion,
 )
-from evodev.domain.experiences import Experience, ExperienceOutcome
+from evodev.domain.experiences import Experience, ExperienceMatch, ExperienceOutcome
 from evodev.domain.tasks import TaskRead
 from evodev.persistence.artifacts import LocalArtifactStore
 from evodev.persistence.checkpoints import PostgresCheckpointStore
@@ -92,7 +92,7 @@ class NullExperienceStore:
         task_type: str,
         tags: list[str],
         limit: int = 3,
-    ) -> list[Experience]:
+    ) -> list[ExperienceMatch]:
         del task_type, tags, limit
         return []
 
